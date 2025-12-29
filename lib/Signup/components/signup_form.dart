@@ -75,6 +75,22 @@ class _SignUpFormState extends State<SignUpForm> {
     }
   }
 
+  void _validateAndRegister() {
+  if (usernameController.text.isEmpty ||
+      passwordController.text.isEmpty ||
+      namaController.text.isEmpty ||
+      emailController.text.isEmpty) {
+    Fluttertoast.showToast(
+      msg: 'Semua field wajib diisi',
+      backgroundColor: Colors.orange,
+      toastLength: Toast.LENGTH_LONG,
+    );
+    return;
+  }
+
+  registerUser();
+}
+
   void registerUser() async {
     final apiUrl = base_url + 'api/Register/Register';
 
@@ -89,21 +105,23 @@ class _SignUpFormState extends State<SignUpForm> {
       'kecamatan': kecamatanController.text,
       'kabupaten': kabupatenController.text,
       'provinsi': provinsiController.text,
-      'jekel': 'Perempuan',
+      'jekel': selectedGender,
       'no_telp': noTelpController.text,
       'email': emailController.text,
       'umur': umurController.text,
     };
 
     try {
-      final response = await http.post(
-        Uri.parse(apiUrl),
-        body: json.encode(data),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $accessToken', // Menggunakan token OAuth2
-        },
-      );
+  final response = await http.post(
+    Uri.parse(apiUrl),
+    headers: {
+      'Content-Type': 'application/json; charset=UTF-8',
+      'Authorization': 'Bearer $accessToken',
+    },
+    body: jsonEncode(data),
+  );
+
+    print('Status: ${response.statusCode}, Body: ${response.body}'); // tetap ada, meski di APK tidak terlihat
 
       if (response.statusCode == 200) {
         // Registrasi berhasil, lakukan sesuatu di sini
@@ -174,7 +192,7 @@ class _SignUpFormState extends State<SignUpForm> {
                           decoration: InputDecoration(hintText: 'Username'),
                         ),
                       )
-                    ],
+                    ],  
                   ),
                   SizedBox(height: 10),
                   Column(
@@ -346,11 +364,9 @@ class _SignUpFormState extends State<SignUpForm> {
                   Center(
                       child: Container(
                     child: ElevatedButton(
-                      onPressed: () {
-                        registerUser();
-                      },
-                      child: Text('Simpan'),
-                    ),
+  onPressed: _validateAndRegister, // ✅ Panggil fungsi validasi
+  child: Text('Simpan'),
+),
                   )),
                   SizedBox(height: 10.0),
                   Padding(

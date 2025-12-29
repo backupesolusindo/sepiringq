@@ -6,12 +6,9 @@ import 'package:isi_piringku/components/constants.dart';
 import 'package:isi_piringku/dashboard/dashboard.dart';
 import 'package:isi_piringku/lupaPassword/lupaPassword.dart';
 import 'package:isi_piringku/model/user.dart';
-
 import 'package:shared_preferences/shared_preferences.dart';
-
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-
 import '../../util/core.dart';
 
 class LoginForm extends StatefulWidget {
@@ -30,9 +27,9 @@ class _LoginFormState extends State<LoginForm> {
   String clientId = "PKL2023";
   String clientSecret = "PKLSERU";
   String tokenUrl = base_url + "api/Token/token";
-
   String accessToken = "";
   late UserData userData;
+
   Future<void> getToken() async {
     try {
       var response = await http.post(
@@ -53,105 +50,140 @@ class _LoginFormState extends State<LoginForm> {
         print('Token Akses: $accessToken');
       } else {
         print('Gagal mendapatkan token: ${response.statusCode}');
+        Fluttertoast.showToast(
+          msg: 'Gagal mendapatkan token dari server',
+          backgroundColor: Colors.red,
+          textColor: Colors.white,
+          toastLength: Toast.LENGTH_LONG,
+        );
       }
     } catch (e) {
       print('Gagal mendapatkan token: $e');
+      Fluttertoast.showToast(
+        msg: 'Error koneksi saat ambil token',
+        backgroundColor: Colors.red,
+        textColor: Colors.white,
+        toastLength: Toast.LENGTH_LONG,
+      );
     }
   }
 
   Future<void> _login() async {
-    final String username = _usernameController.text;
-    final String password = _passwordController.text;
+    final String username = _usernameController.text.trim();
+    final String password = _passwordController.text.trim();
 
-    await getToken(); // Memanggil fungsi getToken untuk mendapatkan token OAuth2
+    if (username.isEmpty || password.isEmpty) {
+      Fluttertoast.showToast(
+        msg: 'Username dan password wajib diisi',
+        backgroundColor: Colors.orange,
+        textColor: Colors.white,
+        toastLength: Toast.LENGTH_LONG,
+      );
+      return;
+    }
 
-    // Membuat request body
+    // Tunggu sampai token siap
+    await getToken();
+
+    if (accessToken.isEmpty) {
+      Fluttertoast.showToast(
+        msg: 'Token tidak tersedia. Coba lagi.',
+        backgroundColor: Colors.red,
+        textColor: Colors.white,
+        toastLength: Toast.LENGTH_LONG,
+      );
+      return;
+    }
+
     final Map<String, String> data = {
       "username": username,
       "password": password,
     };
 
-    // Mengirim permintaan HTTP POST ke API dengan menyertakan token
-    final response = await http.post(
-      Uri.parse(base_url + 'api/Login/Login'),
-      headers: {
-        'Authorization':
-            'Bearer $accessToken', // Menyertakan token dalam header
-      },
-      body: data,
-    );
+    try {
+      final response = await http.post(
+        Uri.parse(base_url + 'api/Login/Login'),
+        headers: {
+          'Authorization': 'Bearer $accessToken',
+        },
+        body: data,
+      );
 
-    if (response.statusCode == 200) {
-      final responseData = json.decode(response.body);
+      print('Login response: ${response.body}');
 
-      // Simpan data pengguna ke SharedPreferences
+      if (response.statusCode == 200) {
+        final responseData = json.decode(response.body);
+        if (responseData['response'] != null) {
+          // ✅ LOGIN BERHASIL → SIMPAN SESI
+          final prefs = await SharedPreferences.getInstance();
+          userData = UserData.fromJson(responseData['response']);
+          prefs.setString('access_token', accessToken);
+          prefs.setString('user_data', json.encode(userData.toJson()));
 
-      print(responseData);
-      final prefs = await SharedPreferences.getInstance();
-      prefs.setString('access_token', accessToken);
-      // Simpan data pengguna lainnya jika diperlukan
-      if (responseData['response'] != null) {
-        userData = UserData.fromJson(responseData['response']);
-        prefs.setString('user_data', json.encode(userData.toJson()));
-        Navigator.pushReplacement(
+          Fluttertoast.showToast(
+            msg: '✅ Login berhasil',
+            backgroundColor: Colors.green,
+            textColor: Colors.white,
+            toastLength: Toast.LENGTH_LONG,
+          );
+
+          Navigator.pushReplacement(
             context,
-            MaterialPageRoute(
-              builder: (context) => Dashboard(),
-            ));
+            MaterialPageRoute(builder: (context) => Dashboard()),
+          );
+        } else {
+          // ❌ DATA TIDAK LENGKAP
+          _handleLoginError(responseData);
+        }
       } else {
-        final errorMessage =
-            responseData['message']['message'] ?? 'Terjadi kesalahan';
-        Fluttertoast.showToast(
-          msg: errorMessage,
-          toastLength: Toast.LENGTH_SHORT,
-          gravity: ToastGravity.TOP,
-          backgroundColor: Colors.red,
-          textColor: Colors.white,
-        );
+        // ❌ LOGIN GAGAL → HAPUS SESI LAMA
+        await _clearSession();
+        _handleLoginError(json.decode(response.body));
       }
-    } else {
-      final responseData = json.decode(response.body);
-
-      if (responseData['response'] != null) {
-        final errorMessage = 'username atau password salah';
-        Fluttertoast.showToast(
-          msg: errorMessage,
-          toastLength: Toast.LENGTH_SHORT,
-          gravity: ToastGravity.TOP_RIGHT,
-          backgroundColor: Colors.red,
-          textColor: Colors.white,
-        );
-      } else {
-        print('Gagal masuk: ${response.statusCode}');
-        print('Pesan kesalahan: ${response.body}');
-      }
+    } catch (e) {
+      await _clearSession();
+      print('Error login: $e');
+      Fluttertoast.showToast(
+        msg: '❌ Error koneksi: ${e.toString()}',
+        backgroundColor: Colors.red,
+        textColor: Colors.white,
+        toastLength: Toast.LENGTH_LONG,
+      );
     }
+  }
+
+  void _handleLoginError(Map<String, dynamic> responseData) {
+    String errorMsg = 'Username atau password salah';
+    try {
+      if (responseData.containsKey('message')) {
+        if (responseData['message'] is String) {
+          errorMsg = responseData['message'];
+        } else if (responseData['message'] is Map && responseData['message'].containsKey('message')) {
+          errorMsg = responseData['message']['message'];
+        }
+      }
+    } catch (_) {}
+    
+    Fluttertoast.showToast(
+      msg: '❌ $errorMsg',
+      backgroundColor: Colors.red,
+      textColor: Colors.white,
+      toastLength: Toast.LENGTH_LONG,
+    );
+  }
+
+  Future<void> _clearSession() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('access_token');
+    await prefs.remove('user_data');
   }
 
   @override
   void initState() {
     super.initState();
-    // Ambil token saat halaman login dimuat
-    getToken();
-
-    // Periksa apakah token akses sudah ada
-    checkUserSession();
-  }
-
-  Future<void> checkUserSession() async {
-    final prefs = await SharedPreferences.getInstance();
-    final savedAccessToken = prefs.getString('access_token');
-
-    if (savedAccessToken != null) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => Dashboard()),
-      );
-      // Token akses sudah ada, mungkin pengguna sudah masuk
-      // Anda dapat memeriksa validitas token di sini
-      // Misalnya, jika token kedaluwarsa, Anda dapat mengarahkan pengguna untuk logout
-      // atau memperbarui token.
-    }
+    getToken(); // load token for initial login attempt
+    // ❌ JANGAN redirect otomatis hanya karena token ada!
+    // Validasi token harus dilakukan di splash screen, bukan di login
   }
 
   @override
@@ -161,7 +193,7 @@ class _LoginFormState extends State<LoginForm> {
         children: [
           TextFormField(
             controller: _usernameController,
-            keyboardType: TextInputType.emailAddress,
+            keyboardType: TextInputType.text, // bukan email, karena pakai username
             textInputAction: TextInputAction.next,
             cursorColor: kPrimaryColor,
             decoration: InputDecoration(
@@ -190,22 +222,20 @@ class _LoginFormState extends State<LoginForm> {
           ),
           const SizedBox(height: defaultPadding),
           ElevatedButton(
-              onPressed: () {
-                Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => Lupa(),
-                    ));
-              },
-              child: Text('Lupa Password')),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => Lupa()),
+              );
+            },
+            child: Text('Lupa Password'),
+          ),
           const SizedBox(height: defaultPadding),
           Hero(
             tag: "login_btn",
             child: ElevatedButton(
               onPressed: _login,
-              child: Text(
-                "Login".toUpperCase(),
-              ),
+              child: Text("LOGIN".toUpperCase()),
             ),
           ),
           const SizedBox(height: defaultPadding),
@@ -213,11 +243,7 @@ class _LoginFormState extends State<LoginForm> {
             press: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(
-                  builder: (context) {
-                    return SignUpScreen();
-                  },
-                ),
+                MaterialPageRoute(builder: (context) => SignUpScreen()),
               );
             },
           ),

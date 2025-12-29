@@ -1,12 +1,10 @@
 import 'dart:convert';
 import 'dart:math';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
 import 'package:isi_piringku/FAQ/listfaq.dart';
 import 'package:isi_piringku/PedomanGizi/PdfPedomanGizi.dart';
 import 'package:isi_piringku/util/colors.dart';
-import 'package:marquee/marquee.dart';
 import 'package:page_transition/page_transition.dart';
 import 'package:isi_piringku/Login/components/login_form.dart';
 import 'package:isi_piringku/bloc/nav/bottom_nav.dart';
@@ -381,33 +379,20 @@ class _DashboardState extends State<Dashboard> {
             height: 10,
           ),
           Container(
-            width: size.width * 0.7,
-            height: 40,
-            margin: EdgeInsets.symmetric(horizontal: 24),
-            padding: EdgeInsets.symmetric(horizontal: 0, vertical: 10),
-            child: Marquee(
-              text:
-                  'Jaga Kesehatan Anda Dengan Menjaga Pola Makan Dan Olah Raga Yang Cukup',
-              style: TextStyle(fontSize: 16),
-
-              scrollAxis: Axis.horizontal, // Arah pergerakan teks (horizontal)
-              crossAxisAlignment: CrossAxisAlignment.start,
-              blankSpace: 300, // Jarak antara teks yang berulang
-              velocity: 30, // Kecepatan bergeraknya teks
-              pauseAfterRound:
-                  Duration(seconds: 1), // Jeda setelah satu putaran
-              showFadingOnlyWhenScrolling: false,
-              fadingEdgeStartFraction: 0.1,
-              fadingEdgeEndFraction: 0.1,
-              startPadding: 10, // Padding awal sebelum teks bergerak
-              accelerationDuration: Duration(seconds: 1), // Durasi percepatan
-              accelerationCurve: Curves.linear, // Kurva percepatan
-              decelerationDuration:
-                  Duration(milliseconds: 500), // Durasi perlambatan
-              decelerationCurve: Curves.easeOut, // Kurva perlambatan
-            ),
-          ),
-          GestureDetector(
+  width: size.width * 0.7,
+  height: 40,
+  margin: EdgeInsets.symmetric(horizontal: 24),
+  padding: EdgeInsets.symmetric(vertical: 10),
+  child: SingleChildScrollView(
+    scrollDirection: Axis.horizontal,
+    physics: const AlwaysScrollableScrollPhysics(),
+    child: Text(
+      'Jaga Kesehatan Anda Dengan Menjaga Pola Makan Dan Olah Raga Yang Cukup',
+      style: TextStyle(fontSize: 16),
+    ),
+  ),
+),
+        GestureDetector(
             onTap: () => Navigator.of(context).push(
               PageTransition(
                 child: PdfPedomanGizi(),

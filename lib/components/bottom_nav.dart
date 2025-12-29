@@ -110,7 +110,7 @@ class IconBottomBar extends StatelessWidget {
             SizedBox(height: 5),
             Text(
               label,
-              style: Theme.of(context).textTheme.headline6!.copyWith(
+              style: Theme.of(context).textTheme.titleSmall!.copyWith(
                     fontSize: 12,
                     color: (selected == index)
                         ? Colors.orange

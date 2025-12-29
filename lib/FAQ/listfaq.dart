@@ -1,57 +1,28 @@
 import 'dart:convert';
-import 'package:accordion/accordion.dart';
-import 'package:accordion/controllers.dart';
-import 'package:fluttertoast/fluttertoast.dart';
-import 'package:get/get.dart';
-import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
-import 'package:isi_piringku/bloc/nav/bottom_nav.dart';
-import 'package:isi_piringku/kalori/kalori.dart';
-import 'package:isi_piringku/model/user.dart';
-import 'package:isi_piringku/util/colors.dart';
+import 'package:http/http.dart' as http;
+import 'package:fluttertoast/fluttertoast.dart';
 import 'package:isi_piringku/util/core.dart';
-import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:isi_piringku/util/colors.dart';
 
 class ListFaq extends StatefulWidget {
-  ListFaq({Key? key});
+  const ListFaq({Key? key}) : super(key: key);
 
   @override
   State<ListFaq> createState() => _ListFaqState();
 }
 
 class _ListFaqState extends State<ListFaq> {
-  List<int> cardValues = [];
   String clientId = "PKL2023";
   String clientSecret = "PKLSERU";
   String tokenUrl = base_url + "api/Token/token";
   String accessToken = "";
-  List<Map<String, dynamic>> faqData = [];
-  bool isSearching = false;
-  String Id = "";
 
-  Future<void> loadUserData() async {
-    final prefs = await SharedPreferences.getInstance();
-    final userDataString = prefs.getString('user_data');
-
-    if (userDataString != null) {
-      final userData = UserData.fromJson(json.decode(userDataString));
-      print(userData.nama);
-
-      setState(() {
-        Id = userData.idUser.toString();
-      });
-    }
-  }
-
-  Future<void> getToken() async {
+  Future<String> getToken() async {
     try {
-      // Buat permintaan untuk mendapatkan token menggunakan client_credentials
-      var response = await http.post(
+      final response = await http.post(
         Uri.parse(tokenUrl),
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
         body: {
           'grant_type': 'client_credentials',
           'client_id': clientId,
@@ -60,115 +31,142 @@ class _ListFaqState extends State<ListFaq> {
       );
 
       if (response.statusCode == 200) {
-        Map<String, dynamic> tokenData = jsonDecode(response.body);
-        accessToken = tokenData['access_token'];
-        print('Token Akses: $accessToken');
+        final tokenData = jsonDecode(response.body);
+        accessToken = tokenData['access_token'] ?? '';
+        return accessToken;
       } else {
-        // Handle error, misalnya, menampilkan pesan kesalahan
-        print('Gagal mendapatkan token: ${response.statusCode}');
+        throw Exception('Gagal ambil token: ${response.statusCode}');
       }
     } catch (e) {
-      // Handle exception, misalnya, menampilkan pesan kesalahan
-      print('Gagal mendapatkan token: $e');
+      throw Exception('Error koneksi token: $e');
     }
   }
 
-  Future<List<Map<String, dynamic>>> fetchData() async {
+  Future<List<Map<String, dynamic>>> fetchData(String token) async {
     final response = await http.get(
       Uri.parse(base_url + 'api/FAQ/getAllFAQ'),
-      headers: {
-        'Authorization':
-            'Bearer $accessToken', // Use the access token obtained from getToken()
-      },
+      headers: {'Authorization': 'Bearer $token'},
     );
 
     if (response.statusCode == 200) {
-      final List<dynamic> data = jsonDecode(response.body)['response'];
-      return data.cast<Map<String, dynamic>>();
+      final body = jsonDecode(response.body);
+      final data = body['response'];
+      if (data is List) {
+        return data.cast<Map<String, dynamic>>();
+      } else {
+        throw Exception('Data tidak valid: response bukan array');
+      }
+    } else if (response.statusCode == 401) {
+      throw Exception('Token tidak valid');
     } else {
-      throw Exception('Failed to load data');
+      final errorMsg = jsonDecode(response.body)['message'] ?? 'Gagal ambil data';
+      throw Exception('Error: $errorMsg');
     }
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    loadUserData();
-    getToken().then((_) {
-      fetchData().then((data) {
-        setState(() {
-          faqData = data;
-          cardValues = List.filled(faqData.length, 0);
-        });
-      });
-    });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('FAQ - Pusat Informasi'),
+        title: const Text('FAQ - Pusat Informasi'),
         backgroundColor: SecondaryColor,
       ),
-      body: SingleChildScrollView(
-        child: Stack(children: [
-          SafeArea(
-            child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: 15.0),
-                child: Container(
-                  width: MediaQuery.of(context).size.width,
-                  child: Stack(
-                    children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          SizedBox(height: 20),
-                          ListView.builder(
-                            shrinkWrap: true,
-                            physics: NeverScrollableScrollPhysics(),
-                            itemCount: faqData.length,
-                            itemBuilder: (context, index) {
-                              final faq = faqData[index];
-                              String pertanyaan = faq['pertanyaan'];
-                              String jawaban = faq['jawaban'];
-                              int no = index + 1;
-                              return Container(
-                                  padding: EdgeInsets.all(20),
-                                  margin: EdgeInsets.only(bottom: 10),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(10),
-                                    boxShadow: [
-                                      boxShadow,
-                                    ],
-                                  ),
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                          '$no) $pertanyaan', // Menampilkan nama makanan dan jumlah dipilih
-                                          style: TextStyle(
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.bold,
-                                          )),
-                                      Text('${jawaban}',
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                          )),
-                                      // Menampilkan total energi
-                                    ],
-                                  ));
-                            },
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                )),
-          ),
-        ]),
+      body: FutureBuilder<String>(
+        future: getToken(),
+        builder: (context, tokenSnapshot) {
+          if (tokenSnapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (tokenSnapshot.hasError) {
+            return _buildError('Gagal ambil token: ${tokenSnapshot.error}');
+          }
+
+          final token = tokenSnapshot.data!;
+          return FutureBuilder<List<Map<String, dynamic>>>(
+            future: fetchData(token),
+            builder: (context, faqSnapshot) {
+              if (faqSnapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              if (faqSnapshot.hasError) {
+                return _buildError('Gagal ambil FAQ: ${faqSnapshot.error}');
+              }
+
+              final faqData = faqSnapshot.data!;
+              if (faqData.isEmpty) {
+                return _buildEmpty();
+              }
+
+              return ListView.builder(
+                padding: const EdgeInsets.symmetric(horizontal: 15.0, vertical: 10),
+                itemCount: faqData.length,
+                itemBuilder: (context, index) {
+                  final faq = faqData[index];
+                  final pertanyaan = faq['pertanyaan'] ?? '';
+                  final jawaban = faq['jawaban'] ?? '';
+                  final no = index + 1;
+                  return Container(
+                    padding: const EdgeInsets.all(20),
+                    margin: const EdgeInsets.only(bottom: 10),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(10),
+                      boxShadow: [boxShadow],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '$no) $pertanyaan',
+                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          jawaban,
+                          style: const TextStyle(fontSize: 14),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildError(String message) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Fluttertoast.showToast(
+        msg: '❌ $message',
+        backgroundColor: Colors.red,
+        textColor: Colors.white,
+        toastLength: Toast.LENGTH_LONG,
+      );
+    });
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Text(
+          'Gagal memuat FAQ. Silakan coba lagi nanti.',
+          textAlign: TextAlign.center,
+          style: const TextStyle(color: Colors.red),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmpty() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Text(
+          'Belum ada pertanyaan yang tersedia.',
+          textAlign: TextAlign.center,
+          style: const TextStyle(color: Colors.grey),
+        ),
       ),
     );
   }
