@@ -79,7 +79,10 @@ class _SignUpFormState extends State<SignUpForm> {
   if (usernameController.text.isEmpty ||
       passwordController.text.isEmpty ||
       namaController.text.isEmpty ||
-      emailController.text.isEmpty) {
+      emailController.text.isEmpty ||
+      selectedGender.isEmpty || // Validasi jenis kelamin
+      tanggalLahirController.text.isEmpty || // Validasi tanggal lahir
+      noTelpController.text.isEmpty) { // Validasi nomor telepon
     Fluttertoast.showToast(
       msg: 'Semua field wajib diisi',
       backgroundColor: Colors.orange,
@@ -92,55 +95,75 @@ class _SignUpFormState extends State<SignUpForm> {
 }
 
   void registerUser() async {
-    final apiUrl = base_url + 'api/Register/Register';
-
-    final Map<String, dynamic> data = {
-      'username': usernameController.text,
-      'password': passwordController.text,
-      'nama': namaController.text,
-      'tgl_lahir': tanggalLahirController.text,
-      'tinggi_badan': tinggiBadanController.text,
-      'berat_badan': beratBadanController.text,
-      'alamat': alamatController.text,
-      'kecamatan': kecamatanController.text,
-      'kabupaten': kabupatenController.text,
-      'provinsi': provinsiController.text,
-      'jekel': selectedGender,
-      'no_telp': noTelpController.text,
-      'email': emailController.text,
-      'umur': umurController.text,
-    };
-
-    try {
-  final response = await http.post(
-    Uri.parse(apiUrl),
-    headers: {
-      'Content-Type': 'application/json; charset=UTF-8',
-      'Authorization': 'Bearer $accessToken',
-    },
-    body: jsonEncode(data),
-  );
-
-    print('Status: ${response.statusCode}, Body: ${response.body}'); // tetap ada, meski di APK tidak terlihat
-
-      if (response.statusCode == 200) {
-        // Registrasi berhasil, lakukan sesuatu di sini
-        print('Registrasi berhasil');
-        Fluttertoast.showToast(
-            msg: 'Pendaftaran Berhasil',
-            backgroundColor: Colors.green,
-            toastLength: Toast.LENGTH_LONG);
-        Navigator.pop(context);
-        print(response.body);
-      } else {
-        // Registrasi gagal, tampilkan pesan kesalahan atau lakukan sesuatu yang sesuai
-        print('Registrasi gagal. Status code: ${response.statusCode}');
-      }
-    } catch (error) {
-      // Terjadi kesalahan dalam proses registrasi
-      print('Terjadi kesalahan: $error');
-    }
+  if (accessToken.isEmpty) {
+    Fluttertoast.showToast(
+        msg: 'Gagal mendapatkan token. Silakan coba lagi.',
+        backgroundColor: Colors.orange,
+        toastLength: Toast.LENGTH_LONG);
+    return;
   }
+
+  final apiUrl = base_url + 'api/Register/Register';
+
+  final Map<String, dynamic> data = {
+    'username': usernameController.text,
+    'password': passwordController.text,
+    'nama': namaController.text,
+    'tgl_lahir': tanggalLahirController.text,
+    'tinggi_badan': tinggiBadanController.text,
+    'berat_badan': beratBadanController.text,
+    'alamat': alamatController.text,
+    'kecamatan': kecamatanController.text,
+    'kabupaten': kabupatenController.text,
+    'provinsi': provinsiController.text,
+    'jekel': selectedGender,
+    'no_telp': noTelpController.text,
+    'email': emailController.text,
+    'umur': umurController.text,
+  };
+
+  try {
+    final response = await http.post(
+      Uri.parse(apiUrl),
+      headers: {
+        'Content-Type': 'application/json; charset=UTF-8',
+        'Authorization': 'Bearer $accessToken',
+      },
+      body: jsonEncode(data),
+    );
+
+    print('Status: ${response.statusCode}, Body: ${response.body}');
+
+    if (response.statusCode == 200) {
+      print('Registrasi berhasil');
+      Fluttertoast.showToast(
+          msg: 'Pendaftaran Berhasil',
+          backgroundColor: Colors.green,
+          toastLength: Toast.LENGTH_LONG);
+      Navigator.pop(context);
+    } else {
+      try {
+        final Map<String, dynamic> responseData = jsonDecode(response.body);
+        String message = responseData['message']['message'] ?? 'Registrasi gagal';
+        Fluttertoast.showToast(
+            msg: message,
+            backgroundColor: Colors.red,
+            toastLength: Toast.LENGTH_LONG);
+      } catch (e) {
+        Fluttertoast.showToast(
+            msg: 'Registrasi gagal. Status: ${response.statusCode}',
+            backgroundColor: Colors.red,
+            toastLength: Toast.LENGTH_LONG);
+      }
+    }
+  } catch (error) {
+    print('Terjadi kesalahan: $error');
+    Fluttertoast.showToast(
+        msg: 'Terjadi kesalahan jaringan',
+        backgroundColor: Colors.red,
+        toastLength: Toast.LENGTH_LONG);
+  }
+}
 
   @override
   void initState() {

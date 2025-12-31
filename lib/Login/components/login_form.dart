@@ -31,42 +31,50 @@ class _LoginFormState extends State<LoginForm> {
   late UserData userData;
 
   Future<void> getToken() async {
-    try {
-      var response = await http.post(
-        Uri.parse(tokenUrl),
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: {
-          'grant_type': 'client_credentials',
-          'client_id': clientId,
-          'client_secret': clientSecret,
-        },
-      );
+  try {
+    var response = await http.post(
+      Uri.parse(tokenUrl),
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: {
+        'grant_type': 'client_credentials',
+        'client_id': clientId,
+        'client_secret': clientSecret,
+      },
+    );
 
-      if (response.statusCode == 200) {
-        Map<String, dynamic> tokenData = jsonDecode(response.body);
-        accessToken = tokenData['access_token'];
-        print('Token Akses: $accessToken');
-      } else {
-        print('Gagal mendapatkan token: ${response.statusCode}');
-        Fluttertoast.showToast(
-          msg: 'Gagal mendapatkan token dari server',
-          backgroundColor: Colors.red,
-          textColor: Colors.white,
-          toastLength: Toast.LENGTH_LONG,
-        );
-      }
-    } catch (e) {
-      print('Gagal mendapatkan token: $e');
-      Fluttertoast.showToast(
-        msg: 'Error koneksi saat ambil token',
-        backgroundColor: Colors.red,
-        textColor: Colors.white,
-        toastLength: Toast.LENGTH_LONG,
-      );
+    print('Token response status: ${response.statusCode}');
+    print('Token response body: ${response.body}');
+
+    if (response.statusCode != 200) {
+      throw Exception('Status ${response.statusCode}: ${response.body}');
     }
+
+    Map<String, dynamic> tokenData;
+    try {
+      tokenData = jsonDecode(response.body);
+    } catch (e) {
+      throw Exception('Response bukan JSON valid: ${response.body}');
+    }
+
+    if (!tokenData.containsKey('access_token')) {
+      throw Exception('Access token tidak ditemukan dalam respons');
+    }
+
+    accessToken = tokenData['access_token'] as String;
+    print('Token Akses: $accessToken');
+
+  } catch (e) {
+    print('Gagal mendapatkan token: $e');
+    Fluttertoast.showToast(
+      msg: '❌ $e',
+      backgroundColor: Colors.red,
+      textColor: Colors.white,
+      toastLength: Toast.LENGTH_LONG,
+    );
   }
+}
 
   Future<void> _login() async {
     final String username = _usernameController.text.trim();
@@ -181,9 +189,7 @@ class _LoginFormState extends State<LoginForm> {
   @override
   void initState() {
     super.initState();
-    getToken(); // load token for initial login attempt
-    // ❌ JANGAN redirect otomatis hanya karena token ada!
-    // Validasi token harus dilakukan di splash screen, bukan di login
+    
   }
 
   @override
