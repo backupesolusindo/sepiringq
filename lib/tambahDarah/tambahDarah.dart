@@ -22,36 +22,8 @@ class _InputDarahState extends State<InputDarah> {
   String currentDate = DateFormat('yyyy-MM-dd').format(DateTime.now());
   String clientId = "PKL2023";
   String clientSecret = "PKLSERU";
-  String tokenUrl = base_url + "api/Token/token";
-  String accessToken = "";
   String txtNama = "";
   List<dynamic> arTambahDarah = [];
-
-  Future<void> getToken() async {
-    try {
-      var response = await http.post(
-        Uri.parse(tokenUrl),
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: {
-          'grant_type': 'client_credentials',
-          'client_id': clientId,
-          'client_secret': clientSecret,
-        },
-      );
-
-      if (response.statusCode == 200) {
-        Map<String, dynamic> tokenData = jsonDecode(response.body);
-        accessToken = tokenData['access_token'];
-        print('Token Akses: $accessToken');
-      } else {
-        print('Gagal mendapatkan token: ${response.statusCode}');
-      }
-    } catch (e) {
-      print('Gagal mendapatkan token: $e');
-    }
-  }
 
   // Simulated database (replace with your actual database implementation)
   List _database = [];
@@ -73,7 +45,7 @@ class _InputDarahState extends State<InputDarah> {
     }
   }
 
-  Future<void> _saveDataToDatabase() async {
+  Future<void> _saveDataToDatabase(String status) async {
     final prefs = await SharedPreferences.getInstance();
     final userDataString = prefs.getString('user_data');
 
@@ -87,40 +59,24 @@ class _InputDarahState extends State<InputDarah> {
       });
     }
     print(ID);
-    await getToken(); // Panggil getToken() untuk mendapatkan token akses
 
-    final url = Uri.parse(base_url + 'api/Darah/darah');
+    final url = Uri.parse(base_url + 'API/Darah/darah');
 
     // Create a Map for the data to be sent
     final data = {
       "tanggal": currentDate,
       "id_user": ID,
-      "status": 'sudah',
+      "status": status, // 'sudah' atau 'belum'
     };
 
     final response = await http.post(
       url,
-      headers: {
-        // 'Authorization': 'Bearer $accessToken',
-      },
       body: data, // Konversi objek data ke dalam bentuk JSON
     );
 
     if (response.statusCode == 200) {
-      fetchDataDarah();
-      // Data successfully sent to the server
-      // final record = TambahDarah(
-      //   id_user: ID,
-      //   tanggal: currentDate,
-      //   status: 'sudah',
-      // );
-
-      // In a real application, you would save the record to your database.
-      // Here, we'll add it to a list for demonstration purposes.
-      // _database.add(record);
-
-      // Navigate back to the previous screen (Dashboard in this case)
-      // Navigator.of(context).pop();
+      fetchDataDarah(); // Refresh data setelah simpan
+      // Navigator.of(context).pop(); // Optional: kembali ke halaman sebelumnya
     } else {
       // Handle error here, e.g., show an error message to the user
       print('Error: ${response.statusCode}, ${response.body}');
@@ -129,16 +85,14 @@ class _InputDarahState extends State<InputDarah> {
 
   Future<void> fetchDataDarah() async {
     final Uri uri =
-        Uri.parse(base_url + 'api/Darah/tambahdarahall?id_user=$ID');
+        Uri.parse(base_url + 'API/Darah/tambahdarahall?id_user=$ID');
     final response = await http.get(uri);
-
-    // print(response.body);
 
     arTambahDarah.clear();
 
     if (response.statusCode == 200) {
       final jsonData = json.decode(response.body);
-      final responseList = jsonData['data'];
+      final responseList = jsonData['response'] as List;
 
       int no = 0;
       setState(() {
@@ -151,14 +105,18 @@ class _InputDarahState extends State<InputDarah> {
         if (datenow.month < 10) {
           angkabln = "0" + angkabln.toString();
         }
-        var tanggal = angkatgl + "-" + angkabln + "-" + datenow.year.toString();
+        // ✅ Perbaikan: Gunakan format yyyy-MM-dd untuk pengecekan
+        var tanggalHariIni = "${datenow.year}-${angkabln}-${angkatgl}";
+        
         responseList.forEach((element) {
           arTambahDarah.add(element['tanggal']);
         });
-        if (arTambahDarah.contains(tanggal)) {
+
+        // ✅ Perbaikan: Bandingkan dengan format yang sama
+        if (arTambahDarah.contains(tanggalHariIni)) {
           _isBelumMinum = false;
         }
-        print("Belum Minum" + tanggal.toString());
+        print("Belum Minum$tanggalHariIni");
       });
     } else {
       print(response.body);
@@ -214,29 +172,22 @@ class _InputDarahState extends State<InputDarah> {
                               ),
                             ],
                           ),
-                          // Tambahkan komponen UI lainnya di sini
                           SizedBox(
-                            height:
-                                20, // Tambahkan jarak antara teks dan Container
+                            height: 20,
                           ),
                           if (_isBelumMinum)
                             Container(
-                              width: 400, // Lebar container
-                              padding: EdgeInsets.all(
-                                  16.0), // Padding pada Container
+                              width: 400,
+                              padding: EdgeInsets.all(16.0),
                               decoration: BoxDecoration(
-                                color: Colors
-                                    .white, // Warna latar belakang Container
-                                borderRadius: BorderRadius.circular(
-                                    10.0), // Radius sudut sebesar 10
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(10.0),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: Colors.grey.withOpacity(
-                                        0.5), // Warna shadow abu-abu
-                                    spreadRadius:
-                                        5, // Seberapa jauh shadow menyebar
-                                    blurRadius: 7, // Tingkat keburaman shadow
-                                    offset: Offset(0, 3), // Posisi shadow
+                                    color: Colors.grey.withOpacity(0.5),
+                                    spreadRadius: 5,
+                                    blurRadius: 7,
+                                    offset: Offset(0, 3),
                                   ),
                                 ],
                               ),
@@ -270,8 +221,7 @@ class _InputDarahState extends State<InputDarah> {
                                       SizedBox(width: 70),
                                       ElevatedButton(
                                         onPressed: () {
-                                          // Aksi saat tombol "Sudah" ditekan
-                                          _saveDataToDatabase();
+                                          _saveDataToDatabase('sudah');
                                         },
                                         style: ElevatedButton.styleFrom(
                                           backgroundColor: Colors.green,
@@ -281,7 +231,7 @@ class _InputDarahState extends State<InputDarah> {
                                       SizedBox(width: 30),
                                       ElevatedButton(
                                         onPressed: () {
-                                          // Aksi saat tombol "Belum" ditekan
+                                          _saveDataToDatabase('belum');
                                         },
                                         style: ElevatedButton.styleFrom(
                                           backgroundColor: Colors.red,
@@ -289,6 +239,58 @@ class _InputDarahState extends State<InputDarah> {
                                         child: Text('Belum'),
                                       ),
                                     ],
+                                  ),
+                                ],
+                              ),
+                            )
+                          else
+                            Container(
+                              width: 400,
+                              padding: EdgeInsets.all(16.0),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(10.0),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.grey.withOpacity(0.5),
+                                    spreadRadius: 5,
+                                    blurRadius: 7,
+                                    offset: Offset(0, 3),
+                                  ),
+                                ],
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Tanggal:',
+                                    style: TextStyle(
+                                      fontSize: 15,
+                                      color: Colors.black,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  Text(
+                                    txtNama,
+                                    style: TextStyle(
+                                      fontSize: 15,
+                                      color: Colors.deepOrange,
+                                    ),
+                                  ),
+                                  Text(
+                                    'Anda sudah mencatat minum tablet tambah darah hari ini.',
+                                    style: TextStyle(
+                                      fontSize: 15,
+                                      color: Colors.black,
+                                    ),
+                                  ),
+                                  SizedBox(height: 8),
+                                  Text(
+                                    'Silakan cek kembali di kalender.',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      color: Colors.grey,
+                                    ),
                                   ),
                                 ],
                               ),
@@ -328,9 +330,6 @@ class _InputDarahState extends State<InputDarah> {
                                 ),
                               ),
                               eventLoader: (day) {
-                                // if (day.weekday == DateTime.monday) {
-                                //   return [Event('Event A'), Event('Event B')];
-                                // }
                                 var angkatgl = day.day.toString();
                                 var angkabln = day.month.toString();
                                 if (day.day < 10) {
@@ -339,11 +338,7 @@ class _InputDarahState extends State<InputDarah> {
                                 if (day.month < 10) {
                                   angkabln = "0" + angkabln.toString();
                                 }
-                                var tanggal = angkatgl +
-                                    "-" +
-                                    angkabln +
-                                    "-" +
-                                    day.year.toString();
+                                var tanggal = "${day.year}-${angkabln}-${angkatgl}";
                                 if (arTambahDarah.contains(tanggal)) {
                                   return [Event('Event A'), Event('Event B')];
                                 }

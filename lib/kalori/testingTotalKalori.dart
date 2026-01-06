@@ -58,7 +58,7 @@ class _TestingTotalState extends State<TestingTotal> {
         headers: {
           'Authorization': 'Bearer $accessToken', // Menggunakan token akses
         },
-      );
+      );  
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
@@ -88,11 +88,10 @@ class _TestingTotalState extends State<TestingTotal> {
   }
 
   @override
-  void initState() {
-    super.initState();
-    getToken();
-    fetchData();
-  }
+void initState() {
+  super.initState();
+  getToken(); // fetchData dipanggil DI DALAM getToken()
+}
 
   @override
   Widget build(BuildContext context) {

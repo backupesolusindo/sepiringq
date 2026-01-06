@@ -77,88 +77,73 @@ class _LoginFormState extends State<LoginForm> {
 }
 
   Future<void> _login() async {
-    final String username = _usernameController.text.trim();
-    final String password = _passwordController.text.trim();
+  final String username = _usernameController.text.trim();
+  final String password = _passwordController.text.trim();
 
-    if (username.isEmpty || password.isEmpty) {
-      Fluttertoast.showToast(
-        msg: 'Username dan password wajib diisi',
-        backgroundColor: Colors.orange,
-        textColor: Colors.white,
-        toastLength: Toast.LENGTH_LONG,
-      );
-      return;
-    }
-
-    // Tunggu sampai token siap
-    await getToken();
-
-    if (accessToken.isEmpty) {
-      Fluttertoast.showToast(
-        msg: 'Token tidak tersedia. Coba lagi.',
-        backgroundColor: Colors.red,
-        textColor: Colors.white,
-        toastLength: Toast.LENGTH_LONG,
-      );
-      return;
-    }
-
-    final Map<String, String> data = {
-      "username": username,
-      "password": password,
-    };
-
-    try {
-      final response = await http.post(
-        Uri.parse(base_url + 'api/Login/Login'),
-        headers: {
-          'Authorization': 'Bearer $accessToken',
-        },
-        body: data,
-      );
-
-      print('Login response: ${response.body}');
-
-      if (response.statusCode == 200) {
-        final responseData = json.decode(response.body);
-        if (responseData['response'] != null) {
-          // ✅ LOGIN BERHASIL → SIMPAN SESI
-          final prefs = await SharedPreferences.getInstance();
-          userData = UserData.fromJson(responseData['response']);
-          prefs.setString('access_token', accessToken);
-          prefs.setString('user_data', json.encode(userData.toJson()));
-
-          Fluttertoast.showToast(
-            msg: '✅ Login berhasil',
-            backgroundColor: Colors.green,
-            textColor: Colors.white,
-            toastLength: Toast.LENGTH_LONG,
-          );
-
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (context) => Dashboard()),
-          );
-        } else {
-          // ❌ DATA TIDAK LENGKAP
-          _handleLoginError(responseData);
-        }
-      } else {
-        // ❌ LOGIN GAGAL → HAPUS SESI LAMA
-        await _clearSession();
-        _handleLoginError(json.decode(response.body));
-      }
-    } catch (e) {
-      await _clearSession();
-      print('Error login: $e');
-      Fluttertoast.showToast(
-        msg: '❌ Error koneksi: ${e.toString()}',
-        backgroundColor: Colors.red,
-        textColor: Colors.white,
-        toastLength: Toast.LENGTH_LONG,
-      );
-    }
+  if (username.isEmpty || password.isEmpty) {
+    Fluttertoast.showToast(
+      msg: 'Username dan password wajib diisi',
+      backgroundColor: Colors.orange,
+      textColor: Colors.white,
+    );
+    return;
   }
+
+  try {
+    final response = await http.post(
+      Uri.parse(base_url + 'API/Login/login'), // ✅ FIXED
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Accept': 'application/json',
+      },
+      body: {
+        'username': username,
+        'password': password,
+      },
+    );
+
+    print('STATUS: ${response.statusCode}');
+    print('BODY: ${response.body}');
+
+    // 🚨 CEK DULU SEBELUM JSON DECODE
+    if (response.body.isEmpty) {
+      throw Exception('Response kosong dari server');
+    }
+
+    final responseData = jsonDecode(response.body);
+
+    if (response.statusCode == 200 && responseData['success'] == true) {
+      final prefs = await SharedPreferences.getInstance();
+
+      userData = UserData.fromJson(responseData['response']);
+      await prefs.setString('user_data', jsonEncode(userData.toJson()));
+
+      Fluttertoast.showToast(
+        msg: '✅ Login berhasil',
+        backgroundColor: Colors.green,
+        textColor: Colors.white,
+      );
+
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => Dashboard()),
+      );
+    } else {
+      Fluttertoast.showToast(
+        msg: responseData['message']['message'] ?? 'Login gagal',
+        backgroundColor: Colors.red,
+        textColor: Colors.white,
+      );
+    }
+  } catch (e) {
+    print('ERROR LOGIN: $e');
+    Fluttertoast.showToast(
+      msg: '❌ Error koneksi server',
+      backgroundColor: Colors.red,
+      textColor: Colors.white,
+    );
+  }
+}
 
   void _handleLoginError(Map<String, dynamic> responseData) {
     String errorMsg = 'Username atau password salah';

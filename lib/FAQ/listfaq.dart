@@ -15,37 +15,13 @@ class ListFaq extends StatefulWidget {
 class _ListFaqState extends State<ListFaq> {
   String clientId = "PKL2023";
   String clientSecret = "PKLSERU";
-  String tokenUrl = base_url + "api/Token/token";
+  String tokenUrl = base_url + "API/Token/token";
   String accessToken = "";
 
-  Future<String> getToken() async {
-    try {
-      final response = await http.post(
-        Uri.parse(tokenUrl),
-        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-        body: {
-          'grant_type': 'client_credentials',
-          'client_id': clientId,
-          'client_secret': clientSecret,
-        },
-      );
-
-      if (response.statusCode == 200) {
-        final tokenData = jsonDecode(response.body);
-        accessToken = tokenData['access_token'] ?? '';
-        return accessToken;
-      } else {
-        throw Exception('Gagal ambil token: ${response.statusCode}');
-      }
-    } catch (e) {
-      throw Exception('Error koneksi token: $e');
-    }
-  }
-
-  Future<List<Map<String, dynamic>>> fetchData(String token) async {
+ 
+  Future<List<Map<String, dynamic>>> fetchData() async {
     final response = await http.get(
-      Uri.parse(base_url + 'api/FAQ/getAllFAQ'),
-      headers: {'Authorization': 'Bearer $token'},
+      Uri.parse(base_url + 'API/FAQ/getAllFAQ'),
     );
 
     if (response.statusCode == 200) {
@@ -71,19 +47,8 @@ class _ListFaqState extends State<ListFaq> {
         title: const Text('FAQ - Pusat Informasi'),
         backgroundColor: SecondaryColor,
       ),
-      body: FutureBuilder<String>(
-        future: getToken(),
-        builder: (context, tokenSnapshot) {
-          if (tokenSnapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (tokenSnapshot.hasError) {
-            return _buildError('Gagal ambil token: ${tokenSnapshot.error}');
-          }
-
-          final token = tokenSnapshot.data!;
-          return FutureBuilder<List<Map<String, dynamic>>>(
-            future: fetchData(token),
+      body: FutureBuilder<List<Map<String, dynamic>>>(
+            future: fetchData(),
             builder: (context, faqSnapshot) {
               if (faqSnapshot.connectionState == ConnectionState.waiting) {
                 return const Center(child: CircularProgressIndicator());
@@ -131,10 +96,8 @@ class _ListFaqState extends State<ListFaq> {
                 },
               );
             },
-          );
-        },
-      ),
-    );
+          )
+        );
   }
 
   Widget _buildError(String message) {

@@ -29,10 +29,8 @@ class _KaloriState extends State<Kalori> {
   String formattedDate = DateFormat('yyyy-MM-dd').format(DateTime.now());
   String clientId = "PKL2023";
   String clientSecret = "PKLSERU";
-  String tokenUrl =
-      base_url + "api/Token/token"; // Ganti dengan URL token endpoint Anda
 
-  String accessToken = "";
+
 
   @override
   void initState() {
@@ -45,7 +43,7 @@ class _KaloriState extends State<Kalori> {
     setState(() {
       isLoading = true;
     });
-    final Uri apiUrl2 = Uri.parse(base_url + 'api/JadwalMakan/jadwal');
+    final Uri apiUrl2 = Uri.parse(base_url + 'API/JadwalMakan/jadwal');
     final response = await http.get(apiUrl2);
     print("Response Jadwal Makanan");
     print(response.body);
@@ -61,34 +59,7 @@ class _KaloriState extends State<Kalori> {
     }
   }
 
-  Future<void> getToken() async {
-    try {
-      // Buat permintaan untuk mendapatkan token menggunakan client_credentials
-      var response = await http.post(
-        Uri.parse(tokenUrl),
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: {
-          'grant_type': 'client_credentials',
-          'client_id': clientId,
-          'client_secret': clientSecret,
-        },
-      );
-
-      if (response.statusCode == 200) {
-        Map<String, dynamic> tokenData = jsonDecode(response.body);
-        accessToken = tokenData['access_token'];
-        print('Token Akses: $accessToken');
-      } else {
-        // Handle error, misalnya, menampilkan pesan kesalahan
-        print('Gagal mendapatkan token: ${response.statusCode}');
-      }
-    } catch (e) {
-      // Handle exception, misalnya, menampilkan pesan kesalahan
-      print('Gagal mendapatkan token: $e');
-    }
-  }
+ 
 
   Future<void> loadUserDataAndFetchData() async {
     await loadUserData(); // Menunggu hingga loadUserData selesai
@@ -119,7 +90,7 @@ class _KaloriState extends State<Kalori> {
 
     print(Id);
     String fetkal =
-        base_url + "api/Makanan/konsumsi?id_user=$Id&waktu=$formattedDate";
+        base_url + "API/Makanan/konsumsi?id_user=$Id&waktu=$formattedDate";
     final response = await http.get(
       Uri.parse(fetkal),
     );

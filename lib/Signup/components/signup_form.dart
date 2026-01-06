@@ -28,21 +28,22 @@ class _SignUpFormState extends State<SignUpForm> {
     return null; // Data valid
   }
 
-  TextEditingController usernameController = TextEditingController();
-  TextEditingController passwordController = TextEditingController();
-  TextEditingController jabatanController = TextEditingController();
-  TextEditingController namaController = TextEditingController();
-  TextEditingController tanggalLahirController = TextEditingController();
-  TextEditingController tinggiBadanController = TextEditingController();
-  TextEditingController beratBadanController = TextEditingController();
-  TextEditingController alamatController = TextEditingController();
-  TextEditingController kecamatanController = TextEditingController();
-  TextEditingController kabupatenController = TextEditingController();
-  TextEditingController provinsiController = TextEditingController();
-  TextEditingController jenisKelaminController = TextEditingController();
-  TextEditingController noTelpController = TextEditingController();
-  TextEditingController emailController = TextEditingController();
-  TextEditingController umurController = TextEditingController();
+final TextEditingController usernameController = TextEditingController();
+final TextEditingController passwordController = TextEditingController();
+final TextEditingController jabatanController = TextEditingController();
+final TextEditingController namaController = TextEditingController();
+final TextEditingController tanggalLahirController = TextEditingController();
+final TextEditingController tinggiBadanController = TextEditingController();
+final TextEditingController beratBadanController = TextEditingController();
+final TextEditingController alamatController = TextEditingController();
+final TextEditingController kecamatanController = TextEditingController();
+final TextEditingController kabupatenController = TextEditingController();
+final TextEditingController provinsiController = TextEditingController();
+final TextEditingController jenisKelaminController = TextEditingController();
+final TextEditingController noTelpController = TextEditingController();
+final TextEditingController emailController = TextEditingController();
+final TextEditingController umurController = TextEditingController();
+
   bool _obscurePassword = true;
   String clientId = "PKL2023";
   String clientSecret = "PKLSERU";
@@ -94,76 +95,68 @@ class _SignUpFormState extends State<SignUpForm> {
   registerUser();
 }
 
-  void registerUser() async {
-  if (accessToken.isEmpty) {
-    Fluttertoast.showToast(
-        msg: 'Gagal mendapatkan token. Silakan coba lagi.',
-        backgroundColor: Colors.orange,
-        toastLength: Toast.LENGTH_LONG);
-    return;
-  }
-
-  final apiUrl = base_url + 'api/Register/Register';
-
-  final Map<String, dynamic> data = {
-    'username': usernameController.text,
-    'password': passwordController.text,
-    'nama': namaController.text,
-    'tgl_lahir': tanggalLahirController.text,
-    'tinggi_badan': tinggiBadanController.text,
-    'berat_badan': beratBadanController.text,
-    'alamat': alamatController.text,
-    'kecamatan': kecamatanController.text,
-    'kabupaten': kabupatenController.text,
-    'provinsi': provinsiController.text,
-    'jekel': selectedGender,
-    'no_telp': noTelpController.text,
-    'email': emailController.text,
-    'umur': umurController.text,
-  };
-
+void registerUser() async {
+  final apiUrl = base_url + 'API/Register/register';
+  print('REGISTER URL: $apiUrl');
   try {
     final response = await http.post(
       Uri.parse(apiUrl),
       headers: {
-        'Content-Type': 'application/json; charset=UTF-8',
-        'Authorization': 'Bearer $accessToken',
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $accessToken', // optional
       },
-      body: jsonEncode(data),
+      body: {
+        'username': usernameController.text.trim(),
+        'password': passwordController.text.trim(),
+        'email': emailController.text.trim(),
+        'nama': namaController.text.trim(),
+        'tgl_lahir': tanggalLahirController.text,
+        'tinggi_badan': tinggiBadanController.text,
+        'berat_badan': beratBadanController.text,
+        'alamat': alamatController.text,
+        'kecamatan': kecamatanController.text,
+        'kabupaten': kabupatenController.text,
+        'provinsi': provinsiController.text,
+        'jekel': selectedGender,
+        'no_telp': noTelpController.text,
+        'umur': umurController.text,
+      },
     );
 
-    print('Status: ${response.statusCode}, Body: ${response.body}');
+    print('STATUS: ${response.statusCode}');
+    print('BODY: ${response.body}');
+
+
+    Map<String, dynamic>? responseData;
+    try {
+      responseData = jsonDecode(response.body);
+    } catch (_) {
+      responseData = null;
+    }
 
     if (response.statusCode == 200) {
-      print('Registrasi berhasil');
       Fluttertoast.showToast(
-          msg: 'Pendaftaran Berhasil',
-          backgroundColor: Colors.green,
-          toastLength: Toast.LENGTH_LONG);
+        msg: responseData?['message']['message'] ?? 'Registrasi berhasil',
+        backgroundColor: Colors.green,
+      );
       Navigator.pop(context);
     } else {
-      try {
-        final Map<String, dynamic> responseData = jsonDecode(response.body);
-        String message = responseData['message']['message'] ?? 'Registrasi gagal';
-        Fluttertoast.showToast(
-            msg: message,
-            backgroundColor: Colors.red,
-            toastLength: Toast.LENGTH_LONG);
-      } catch (e) {
-        Fluttertoast.showToast(
-            msg: 'Registrasi gagal. Status: ${response.statusCode}',
-            backgroundColor: Colors.red,
-            toastLength: Toast.LENGTH_LONG);
-      }
-    }
-  } catch (error) {
-    print('Terjadi kesalahan: $error');
-    Fluttertoast.showToast(
-        msg: 'Terjadi kesalahan jaringan',
+      Fluttertoast.showToast(
+        msg: responseData?['message']['message'] ?? 'Registrasi gagal',
         backgroundColor: Colors.red,
-        toastLength: Toast.LENGTH_LONG);
+      );
+    }
+  } catch (e) {
+    print('ERROR REGISTER: $e');
+    Fluttertoast.showToast(
+      msg: 'Server tidak dapat diakses',
+      backgroundColor: Colors.red,
+    );
   }
 }
+
+
 
   @override
   void initState() {

@@ -29,8 +29,7 @@ class _TambahKaloriState extends State<TambahKalori> {
   List<Map<String, dynamic>> filteredFoodData = [];
   String clientId = "PKL2023";
   String clientSecret = "PKLSERU";
-  String tokenUrl = base_url + "api/Token/token";
-  String apiUrl = base_url + "api/Konsumsi/Konsumsi";
+  String apiUrl = base_url + "API/Konsumsi/Konsumsi";
   String accessToken = "";
   List<Map<String, dynamic>> foodData = [];
   bool isSearching = false;
@@ -51,49 +50,25 @@ class _TambahKaloriState extends State<TambahKalori> {
     }
   }
 
-  Future<void> getToken() async {
+  Future<List<Map<String, dynamic>>> fetchData() async {
     try {
-      // Buat permintaan untuk mendapatkan token menggunakan client_credentials
-      var response = await http.post(
-        Uri.parse(tokenUrl),
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: {
-          'grant_type': 'client_credentials',
-          'client_id': clientId,
-          'client_secret': clientSecret,
-        },
+      final response = await http.get(
+        Uri.parse(base_url + 'API/Makanan/makanan'),
       );
 
       if (response.statusCode == 200) {
-        Map<String, dynamic> tokenData = jsonDecode(response.body);
-        accessToken = tokenData['access_token'];
-        print('Token Akses: $accessToken');
+        final body = jsonDecode(response.body);
+        final data = body['response'];
+        if (data is List) {
+          return data.cast<Map<String, dynamic>>();
+        } else {
+          throw Exception('Response "response" bukan array. Body: $body');
+        }
       } else {
-        // Handle error, misalnya, menampilkan pesan kesalahan
-        print('Gagal mendapatkan token: ${response.statusCode}');
+        throw Exception('HTTP Error: ${response.statusCode} - ${response.body}');
       }
     } catch (e) {
-      // Handle exception, misalnya, menampilkan pesan kesalahan
-      print('Gagal mendapatkan token: $e');
-    }
-  }
-
-  Future<List<Map<String, dynamic>>> fetchData() async {
-    final response = await http.get(
-      Uri.parse(base_url + 'api/Makanan/makanan'),
-      headers: {
-        'Authorization':
-            'Bearer $accessToken', // Use the access token obtained from getToken()
-      },
-    );
-
-    if (response.statusCode == 200) {
-      final List<dynamic> data = jsonDecode(response.body)['response'];
-      return data.cast<Map<String, dynamic>>();
-    } else {
-      throw Exception('Failed to load data');
+      throw Exception('Gagal muat data makanan: $e');
     }
   }
 
@@ -101,16 +76,22 @@ class _TambahKaloriState extends State<TambahKalori> {
   void initState() {
     super.initState();
     loadUserData();
-    getToken().then((_) {
-      fetchData().then((data) {
-        setState(() {
-          foodData = data;
-          filteredFoodData = data; // Menginisialisasi dengan data asli
 
-          // Inisialisasi cardValues dengan panjang yang sesuai
-          cardValues = List.filled(foodData.length, 0);
-        });
+    fetchData().then((data) {
+      setState(() {
+        foodData = data;
+        filteredFoodData = data;
+        cardValues = List.filled(foodData.length, 0);
       });
+    }).catchError((error) {
+      Fluttertoast.showToast(
+        msg: 'Gagal muat data makanan: $error',
+        toastLength: Toast.LENGTH_LONG,
+        gravity: ToastGravity.BOTTOM,
+        backgroundColor: Colors.red,
+        textColor: Colors.white,
+      );
+      print('Error fetching food data: $error');
     });
   }
 
@@ -177,12 +158,24 @@ class _TambahKaloriState extends State<TambahKalori> {
 
   Future<void> TambahMakanan(String idMakanan, int index) async {
     debugPrint("ID Makanan: $idMakanan");
-    // get index from array foodData by idMakanan
-    var index = foodData.indexWhere((food) => food['id_makanan'] == idMakanan);
-    var energi = foodData[index]['energi'].toString();
+    var indexInFoodData = foodData.indexWhere((food) => food['id_makanan'] == idMakanan);
+    if (indexInFoodData == -1) {
+      Fluttertoast.showToast(
+        msg: 'Makanan tidak ditemukan',
+        toastLength: Toast.LENGTH_SHORT,
+        gravity: ToastGravity.BOTTOM,
+        backgroundColor: Colors.orange,
+        textColor: Colors.white,
+      );
+      return;
+    }
+
+    var energi = foodData[indexInFoodData]['energi'].toString();
 
     setState(() {
-      cardValues[index] += 1;
+      if (indexInFoodData < cardValues.length) {
+        cardValues[indexInFoodData] += 1;
+      }
     });
 
     var selectedFood = selectedFoods.firstWhereOrNull(
@@ -190,13 +183,11 @@ class _TambahKaloriState extends State<TambahKalori> {
     );
 
     if (selectedFood == null) {
-      // Jika makanan belum ada di dalam selectedFoods, tambahkan makanan tersebut
       selectedFoods.add({
-        ...foodData[index],
+        ...foodData[indexInFoodData],
         'jumlahDipilih': 1,
       });
     } else {
-      // Jika makanan sudah ada di dalam selectedFoods, tambahkan 1 ke properti jumlahDipilih
       selectedFood['jumlahDipilih'] += 1;
     }
 
@@ -289,52 +280,39 @@ class _TambahKaloriState extends State<TambahKalori> {
 
                               // Mengambil energi dari selectedFood sebagai String
                               final energiString = selectedFood['energi'];
-
-                              // Mengonversi energiString ke tipe data int jika angka yang valid
-                              final energi =
-                                  double.tryParse(energiString) ?? 0.0;
-
-                              final jumlahDipilih =
-                                  selectedFood['jumlahDipilih'] as int;
-
-                              // Melakukan perhitungan energi * jumlahDipilih
+                              final energi = double.tryParse(energiString) ?? 0.0;
+                              final jumlahDipilih = selectedFood['jumlahDipilih'] as int;
                               final totalEnergi = energi * jumlahDipilih;
-                              print('energiString: $energiString');
-                              print('jumlahDipilih: $jumlahDipilih');
-                              print('totalEnergi: $totalEnergi');
 
                               return Container(
-                                  padding: EdgeInsets.all(20),
-                                  margin: EdgeInsets.only(bottom: 10),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(10),
-                                    boxShadow: [
-                                      boxShadow,
-                                    ],
-                                  ),
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
+                                margin: EdgeInsets.only(bottom: 10),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(10),
+                                  boxShadow: [boxShadow],
+                                ),
+                                child: ExpansionTile(
+                                  title: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       Text(
-                                          '$namaMakanan', // Menampilkan nama makanan dan jumlah dipilih
-                                          style: TextStyle(
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.bold,
-                                          )),
-                                      Text('${selectedFood['nama_kategori']}',
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                          )),
-                                      // Menampilkan total energi
+                                        '$namaMakanan',
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      Text(
+                                        '${selectedFood['nama_kategori']}',
+                                        style: TextStyle(fontSize: 12),
+                                      ),
                                       Row(
                                         children: [
                                           Expanded(
                                             child: Text(
-                                              'Jumlah Energi : \n $totalEnergi',
+                                              'Jumlah Energi: $totalEnergi',
                                               style: TextStyle(
-                                                fontSize: 16,
+                                                fontSize: 14,
                                                 fontWeight: FontWeight.w500,
                                               ),
                                             ),
@@ -342,13 +320,9 @@ class _TambahKaloriState extends State<TambahKalori> {
                                           IconButton(
                                               onPressed: () {
                                                 setState(() {
-                                                  selectedFood[
-                                                      'jumlahDipilih'] -= 1;
-                                                  if (selectedFood[
-                                                          'jumlahDipilih'] <
-                                                      0) {
-                                                    selectedFood[
-                                                        'jumlahDipilih'] = 0;
+                                                  selectedFood['jumlahDipilih'] -= 1;
+                                                  if (selectedFood['jumlahDipilih'] < 0) {
+                                                    selectedFood['jumlahDipilih'] = 0;
                                                   }
                                                 });
                                               },
@@ -360,15 +334,40 @@ class _TambahKaloriState extends State<TambahKalori> {
                                           IconButton(
                                               onPressed: () {
                                                 setState(() {
-                                                  selectedFood[
-                                                      'jumlahDipilih'] += 1;
+                                                  selectedFood['jumlahDipilih'] += 1;
                                                 });
                                               },
                                               icon: Icon(Icons.add)),
                                         ],
-                                      )
+                                      ),
                                     ],
-                                  ));
+                                  ),
+                                  children: [
+                                    Container(
+                                      padding: EdgeInsets.all(16),
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            'Nutrisi:',
+                                            style: TextStyle(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                          SizedBox(height: 4),
+                                          _buildNutritionRow('Karbohidrat', selectedFood['karbohidrat']),
+                                          _buildNutritionRow('Protein', selectedFood['protein']),
+                                          _buildNutritionRow('Lemak', selectedFood['lemak']),
+                                          _buildNutritionRow('Vitamin A', selectedFood['vitamina']),
+                                          _buildNutritionRow('Vitamin C', selectedFood['vitaminc']),
+                                          _buildNutritionRow('Besi', selectedFood['besi']),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
                             },
                           ),
                         ],
@@ -379,6 +378,21 @@ class _TambahKaloriState extends State<TambahKalori> {
           ),
         ]),
       ),
+    );
+  }
+
+  Widget _buildNutritionRow(String label, dynamic value) {
+    return Row(
+      children: [
+        Text(
+          '$label: ',
+          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+        ),
+        Text(
+          value?.toString() ?? '-',
+          style: TextStyle(fontSize: 12),
+        ),
+      ],
     );
   }
 
@@ -399,10 +413,9 @@ class _TambahKaloriState extends State<TambahKalori> {
             padding: EdgeInsets.only(left: 20, right: 20),
             margin: EdgeInsets.symmetric(vertical: 8),
             child: TextFormField(
-              controller: searchController, // Menggunakan TextEditingController
+              controller: searchController,
               onChanged: (query) {
-                filterFoodList(
-                    query); // Panggil fungsi filterFoodList saat teks berubah
+                filterFoodList(query);
               },
               decoration: InputDecoration(
                 border: OutlineInputBorder(
@@ -425,17 +438,15 @@ class _TambahKaloriState extends State<TambahKalori> {
                     TambahMakanan(foodItem['id_makanan'], index);
                     Navigator.pop(context);
                   },
-                  child: Container(
-                    padding: EdgeInsets.all(12),
-                    margin: EdgeInsets.symmetric(vertical: 4, horizontal: 8),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(8),
-                      boxShadow: [
-                        boxShadow,
-                      ],
+                  child: Card(
+                    elevation: 2,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                    child: Column(
+                    margin: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                    child: Padding(
+                      padding: EdgeInsets.all(12),
+                      child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
@@ -445,9 +456,66 @@ class _TambahKaloriState extends State<TambahKalori> {
                               fontWeight: FontWeight.bold,
                             ),
                           ),
-                          Text('Kategori: ${foodItem['nama_kategori']}'),
-                          Text('Energi: ${foodItem['energi']}'),
-                        ]),
+                          SizedBox(height: 4),
+                          Text(
+                            'Kategori: ${foodItem['nama_kategori']}',
+                            style: TextStyle(fontSize: 14, color: Colors.grey[700]),
+                          ),
+                          Divider(color: Colors.grey[300], height: 16),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'Energi: ${foodItem['energi']}',
+                                style: TextStyle(fontWeight: FontWeight.w600),
+                              ),
+                              Text(
+                                'Karbo: ${foodItem['karbohidrat'] ?? '-'}',
+                                style: TextStyle(fontSize: 12),
+                              ),
+                            ],
+                          ),
+                          SizedBox(height: 4),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'Protein: ${foodItem['protein'] ?? '-'}',
+                                style: TextStyle(fontSize: 12),
+                              ),
+                              Text(
+                                'Lemak: ${foodItem['lemak'] ?? '-'}',
+                                style: TextStyle(fontSize: 12),
+                              ),
+                            ],
+                          ),
+                          SizedBox(height: 4),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'Vit A: ${foodItem['vitamina'] ?? '-'}',
+                                style: TextStyle(fontSize: 12),
+                              ),
+                              Text(
+                                'Vit C: ${foodItem['vitaminc'] ?? '-'}',
+                                style: TextStyle(fontSize: 12),
+                              ),
+                            ],
+                          ),
+                          SizedBox(height: 4),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'Besi: ${foodItem['besi'] ?? '-'}',
+                                style: TextStyle(fontSize: 12),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 );
               },

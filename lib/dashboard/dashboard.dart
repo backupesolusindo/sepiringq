@@ -77,6 +77,11 @@ class _DashboardState extends State<Dashboard> {
       } else if (imtDouble >= 27.1) {
         KeteranganImtText = 'GEMUK BERAT';
       }
+
+      // ✅ Perbaikan: Cek mounted sebelum setState
+      if (mounted) {
+        setState(() {});
+      }
     } else {
       throw Exception('Failed to load data from API');
     }
@@ -89,9 +94,13 @@ class _DashboardState extends State<Dashboard> {
     if (response.statusCode == 200) {
       final Map<String, dynamic> data = json.decode(response.body);
       final List<dynamic> responseList = data['response'];
-      setState(() {
-        articles = responseList;
-      });
+
+      // ✅ Perbaikan: Cek mounted sebelum setState
+      if (mounted) {
+        setState(() {
+          articles = responseList;
+        });
+      }
     } else {
       throw Exception('Failed to load data from API');
     }
@@ -101,9 +110,14 @@ class _DashboardState extends State<Dashboard> {
     final response =
         await http.get(Uri.parse(base_url + 'api/Gambar/getgambar'));
     if (response.statusCode == 200) {
-      setState(() {
-        data = json.decode(response.body)['response'];
-      });
+      final decodedData = json.decode(response.body)['response'];
+
+      // ✅ Perbaikan: Cek mounted sebelum setState
+      if (mounted) {
+        setState(() {
+          data = decodedData;
+        });
+      }
     }
   }
 
@@ -115,14 +129,17 @@ class _DashboardState extends State<Dashboard> {
       final userData = UserData.fromJson(json.decode(userDataString));
       print(userData.nama);
 
-      setState(() {
-        Nama = userData.nama;
-        Email = userData.email;
-        TB = userData.tinggiBadan;
-        BB = userData.beratBadan;
-        Id = userData.idUser.toString();
-        umur = userData.umur;
-      });
+      // ✅ Perbaikan: Cek mounted sebelum setState
+      if (mounted) {
+        setState(() {
+          Nama = userData.nama;
+          Email = userData.email;
+          TB = userData.tinggiBadan;
+          BB = userData.beratBadan;
+          Id = userData.idUser.toString();
+          umur = userData.umur;
+        });
+      }
     }
   }
 
@@ -149,43 +166,21 @@ class _DashboardState extends State<Dashboard> {
     return Scaffold(
       bottomNavigationBar: BottomNavBar(selected: 0),
       backgroundColor: BackgroundColor,
-      // appBar: AppBar(
-      //   toolbarHeight: 20,
-      //   elevation: 0,
-      //   backgroundColor: Colors.deepOrange,
-      // ),
       body: ListView(
         children: [
-          SizedBox(
-            height: 20,
-          ),
+          SizedBox(height: 20),
           Container(
-            // height: 200.0,
-            width: double.infinity,
-            child: Column(
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Container(
-                      margin: EdgeInsets.only(left: 24),
-                      child: Text(
-                        'Hi, ' + Nama + Id,
-                        style: TextStyle(
-                          color: TextColordark,
-                          fontSize: 32,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+            padding: EdgeInsets.only(left: 24),
+            child: Text(
+              'Hi, $Nama$Id',
+              style: TextStyle(
+                color: TextColordark,
+                fontSize: 32,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
-          SizedBox(
-            height: 10,
-          ),
+          SizedBox(height: 10),
           Container(
             padding: EdgeInsets.symmetric(horizontal: 24),
             child: Text(
@@ -374,25 +369,18 @@ class _DashboardState extends State<Dashboard> {
               ),
             ),
           ),
-          // jangan di utak atik .. F
-          SizedBox(
-            height: 10,
-          ),
+          SizedBox(height: 10),
+          // === Perbaikan Visual: Ganti SingleChildScrollView horizontal dengan Text biasa ===
           Container(
-  width: size.width * 0.7,
-  height: 40,
-  margin: EdgeInsets.symmetric(horizontal: 24),
-  padding: EdgeInsets.symmetric(vertical: 10),
-  child: SingleChildScrollView(
-    scrollDirection: Axis.horizontal,
-    physics: const AlwaysScrollableScrollPhysics(),
-    child: Text(
-      'Jaga Kesehatan Anda Dengan Menjaga Pola Makan Dan Olah Raga Yang Cukup',
-      style: TextStyle(fontSize: 16),
-    ),
-  ),
-),
-        GestureDetector(
+            padding: EdgeInsets.symmetric(horizontal: 24),
+            child: Text(
+              'Jaga Kesehatan Anda Dengan Menjaga Pola Makan Dan Olah Raga Yang Cukup',
+              style: TextStyle(fontSize: 16),
+              textAlign: TextAlign.center,
+            ),
+          ),
+          // === End Perbaikan ===
+          GestureDetector(
             onTap: () => Navigator.of(context).push(
               PageTransition(
                 child: PdfPedomanGizi(),
@@ -401,56 +389,37 @@ class _DashboardState extends State<Dashboard> {
               ),
             ),
             child: Container(
-                margin: EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                height: 150,
+              margin: EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+              height: 150,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16.0),
+                image: DecorationImage(
+                  image: AssetImage('assets/images/sushi.png'),
+                  fit: BoxFit.cover,
+                ),
+                boxShadow: [boxShadowPrimary],
+              ),
+              child: Container(
+                padding: EdgeInsets.only(left: 8, right: 8),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(16.0),
-                  image: DecorationImage(
-                    image: AssetImage('assets/images/sushi.png'),
-                    fit: BoxFit.cover,
-                  ),
-                  boxShadow: [boxShadowPrimary],
+                  color: Colors.black.withOpacity(0.6),
                 ),
-                child: Container(
-                  padding: EdgeInsets.only(left: 8, right: 8),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(16.0),
-                    color: Colors.black.withOpacity(0.6),
+                child: Center(
+                  child: Text(
+                    "Pedoman Konsumsi Harian Seimbang Beragam",
+                    style: TextStyle(
+                      color: TextColorLight,
+                      fontSize: 16.0,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    textAlign: TextAlign.center,
                   ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.start,
-                    children: [
-                      // Gambar dari asset
-                      Expanded(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            Container(
-                              alignment: Alignment.center,
-                              child: Text(
-                                "Pedoman Konsumsi Harian Seimbang Beragam", // Ganti dengan deskripsi yang sesuai
-                                style: TextStyle(
-                                  color:
-                                      TextColorLight, // Warna teks pada latar belakang gradient
-                                  fontSize: 16.0,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                                textAlign: TextAlign.center,
-                              ),
-                            ),
-                            // Tambahkan widget lainnya di sini jika diperlukan
-                          ],
-                        ),
-                      ),
-                      SizedBox(width: 10),
-                    ],
-                  ),
-                )),
+                ),
+              ),
+            ),
           ),
-          SizedBox(
-            height: 10,
-          ),
+          SizedBox(height: 10),
           Container(
             padding: EdgeInsets.symmetric(horizontal: 24),
             child: Text(
@@ -465,12 +434,10 @@ class _DashboardState extends State<Dashboard> {
           Container(
             height: 160,
             child: ListView.builder(
-              itemExtent: 250,
-              itemCount: data.length, // Jumlah card yang ingin ditampilkan
-              scrollDirection:
-                  Axis.horizontal, // Untuk menggeser card ke samping
+              itemCount: data.length,
+              scrollDirection: Axis.horizontal,
+              padding: EdgeInsets.symmetric(horizontal: 16),
               itemBuilder: (BuildContext context, int index) {
-                // Daftar warna gradient yang berbeda
                 List<List<Color>> gradients = [
                   [PrimaryColor, Colors.white],
                   [SecondaryColor, Colors.white],
@@ -480,75 +447,70 @@ class _DashboardState extends State<Dashboard> {
                 ];
 
                 return Container(
-                    margin: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                    width: 250, // Lebar card
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(16.0),
-                      gradient: LinearGradient(
-                        colors: gradients[index],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      image: DecorationImage(
-                        image: NetworkImage(data[index]['url']),
-                        fit: BoxFit.cover,
-                      ),
-                      boxShadow: [boxShadowPrimary],
+                  margin: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                  width: 220,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(16.0),
+                    gradient: LinearGradient(
+                      colors: gradients[index % gradients.length],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
                     ),
-                    child: Container(
-                      padding: EdgeInsets.only(left: 8, right: 8),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(16.0),
-                        color: ThirdColor.withOpacity(0.6),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.start,
-                        children: [
-                          // Gambar dari asset
-                          Expanded(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              children: [
-                                Container(
-                                  alignment: Alignment.center,
-                                  child: Text(
-                                    data[index][
-                                        'judul_artikel'], // Ganti dengan deskripsi yang sesuai
-                                    style: TextStyle(
-                                      color:
-                                          TextColorLight, // Warna teks pada latar belakang gradient
-                                      fontSize: 16.0,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                    textAlign: TextAlign.center,
-                                  ),
-                                ),
-                                // Tambahkan widget lainnya di sini jika diperlukan
-                              ],
+                    // === Perbaikan Visual: Gunakan Stack + error handling ===
+                    image: DecorationImage(
+                      image: NetworkImage(data[index]['url']),
+                      fit: BoxFit.cover,
+                    ),
+                    boxShadow: [boxShadowPrimary],
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(16.0),
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        Image.network(
+                          data[index]['url'],
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) {
+                            return Container(
+                              color: Colors.grey[300],
+                              child: const Icon(Icons.broken_image, size: 40, color: Colors.grey),
+                            );
+                          },
+                        ),
+                        Container(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.bottomCenter,
+                              end: Alignment.topCenter,
+                              colors: [Colors.black54, Colors.transparent],
                             ),
                           ),
-                          SizedBox(width: 10), // Spasi antara gambar dan judul
-                          Container(
-                            width: 90, // Lebar gambar
-                            height: 90, // Tinggi gambar
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(24),
-                              child: Image.network(
-                                data[index]['url'],
-                                fit: BoxFit.cover,
-                              ),
+                        ),
+                        Positioned(
+                          bottom: 12,
+                          left: 12,
+                          right: 12,
+                          child: Text(
+                            data[index]['judul_artikel'],
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 16.0,
+                              fontWeight: FontWeight.bold,
                             ),
+                            textAlign: TextAlign.center,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                        ],
-                      ),
-                    ));
+                        ),
+                      ],
+                    ),
+                  ),
+                );
               },
             ),
           ),
-
           SizedBox(height: 16),
-
           Container(
             padding: EdgeInsets.symmetric(horizontal: 24),
             child: Text(
@@ -563,43 +525,58 @@ class _DashboardState extends State<Dashboard> {
           Container(
             height: size.height * 0.25,
             margin: EdgeInsets.symmetric(horizontal: 24),
-            child: ListView(
-              children: articles.map((article) {
-                final String imageUrl = article['gambar_artikel'];
-                final String judul = article['judul'];
+            child: ListView.separated(
+              itemCount: articles.length,
+              separatorBuilder: (context, index) => SizedBox(height: 8),
+              itemBuilder: (context, index) {
+                final String imageUrl = articles[index]['gambar_artikel'];
+                final String judul = articles[index]['judul'];
 
                 return Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8.0, vertical: 8),
-                  margin: EdgeInsets.symmetric(horizontal: 0, vertical: 4),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   decoration: BoxDecoration(
-                      color: BackgroundColorWhite,
-                      borderRadius: BorderRadius.circular(16.0),
-                      boxShadow: [boxShadowWhite]),
+                    color: BackgroundColorWhite,
+                    borderRadius: BorderRadius.circular(16.0),
+                    boxShadow: [boxShadowWhite],
+                  ),
                   child: Row(
                     children: [
-                      Image.network(
-                        imageUrl,
-                        width:
-                            100, // Sesuaikan dengan ukuran gambar yang Anda inginkan
-                        height:
-                            50, // Sesuaikan dengan ukuran gambar yang Anda inginkan
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Image.network(
+                          imageUrl,
+                          width: 80,
+                          height: 60,
+                          fit: BoxFit.cover,
+                          // === Perbaikan Visual: error handling ===
+                          errorBuilder: (context, error, stackTrace) {
+                            return Container(
+                              width: 80,
+                              height: 60,
+                              color: Colors.grey[200],
+                              child: Icon(Icons.image_not_supported, color: Colors.grey),
+                            );
+                          },
+                        ),
                       ),
-                      SizedBox(width: 8),
-                      Text(
-                        judul,
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
+                      SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          judul,
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                     ],
                   ),
                 );
-              }).toList(),
+              },
             ),
           ),
-
           SizedBox(height: 20),
           GestureDetector(
             onTap: () => Navigator.of(context).push(
@@ -610,61 +587,58 @@ class _DashboardState extends State<Dashboard> {
               ),
             ),
             child: Container(
-              height: 130, // Tinggi container
+              padding: EdgeInsets.symmetric(horizontal: 24),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    padding: EdgeInsets.symmetric(horizontal: 24),
-                    child: Text(
-                      'FAQ - Pusat Informasi : ',
-                      style: TextStyle(
-                        color: PrimaryColor,
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
+                  Text(
+                    'FAQ - Pusat Informasi : ',
+                    style: TextStyle(
+                      color: PrimaryColor,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
+                  SizedBox(height: 8),
                   Container(
                     decoration: BoxDecoration(
-                        color: BackgroundColorWhite,
-                        borderRadius: BorderRadius.circular(16.0),
-                        boxShadow: [boxShadowWhite]),
-                    margin: EdgeInsets.only(left: 20, right: 20),
-                    child: Padding(
-                      padding:
-                          EdgeInsets.all(15.0), // Padding untuk konten card
-                      child: Row(
-                        children: [
-                          // Gambar dari asset
-                          Container(
-                            width: 50.0, // Lebar gambar
-                            height: 50.0, // Tinggi gambar
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(10.0),
-                              image: DecorationImage(
-                                image: AssetImage('assets/images/shusi.webp'),
-                                fit: BoxFit.cover,
-                              ),
+                      color: BackgroundColorWhite,
+                      borderRadius: BorderRadius.circular(16.0),
+                      boxShadow: [boxShadowWhite],
+                    ),
+                    margin: EdgeInsets.symmetric(horizontal: 20),
+                    padding: EdgeInsets.all(16),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 50.0,
+                          height: 50.0,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(10.0),
+                            image: DecorationImage(
+                              image: AssetImage('assets/images/shusi.webp'),
+                              fit: BoxFit.cover,
                             ),
                           ),
-                          SizedBox(
-                            width: 40.0,
-                          ),
-                          Center(
-                              child: Text(
-                            'Memiliki Pertanyaa Seputar \n SEPIRINGQ?',
+                        ),
+                        SizedBox(width: 20),
+                        Expanded(
+                          child: Text(
+                            'Memiliki Pertanyaan Seputar \nSEPIRINGQ?',
                             style: TextStyle(fontWeight: FontWeight.bold),
                             textAlign: TextAlign.center,
-                          ))
-                        ],
-                      ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
               ),
             ),
           ),
+          SizedBox(height: 30),
         ],
       ),
     );
