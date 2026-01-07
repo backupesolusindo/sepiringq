@@ -5,10 +5,8 @@ import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
 import 'package:isi_piringku/bloc/nav/bottom_nav.dart';
 import 'package:isi_piringku/kalori/kalori.dart';
-import 'package:isi_piringku/model/user.dart';
 import 'package:isi_piringku/util/colors.dart';
 import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../util/core.dart';
 
@@ -30,25 +28,12 @@ class _TambahKaloriState extends State<TambahKalori> {
   String clientId = "PKL2023";
   String clientSecret = "PKLSERU";
   String apiUrl = base_url + "API/Konsumsi/Konsumsi";
-  String accessToken = "";
+  String accessToken = ""; // tetap dibiarkan (tidak digunakan)
   List<Map<String, dynamic>> foodData = [];
   bool isSearching = false;
   int cardValue = 0;
-  String Id = '';
-
-  Future<void> loadUserData() async {
-    final prefs = await SharedPreferences.getInstance();
-    final userDataString = prefs.getString('user_data');
-
-    if (userDataString != null) {
-      final userData = UserData.fromJson(json.decode(userDataString));
-      print(userData.nama);
-
-      setState(() {
-        Id = userData.idUser.toString();
-      });
-    }
-  }
+  String Id = '1'; // ⚠️ Dummy ID — ganti dengan ID user nyata saat integrasi
+  bool isLoading = false;
 
   Future<List<Map<String, dynamic>>> fetchData() async {
     try {
@@ -75,7 +60,9 @@ class _TambahKaloriState extends State<TambahKalori> {
   @override
   void initState() {
     super.initState();
-    loadUserData();
+
+    // ❌ HAPUS loadUserData karena tidak bisa pakai SharedPreferences
+    // loadUserData(); // <-- DIHAPUS
 
     fetchData().then((data) {
       setState(() {
@@ -111,6 +98,21 @@ class _TambahKaloriState extends State<TambahKalori> {
   }
 
   Future<void> kirimData() async {
+    if (selectedFoods.isEmpty) {
+      Fluttertoast.showToast(
+        msg: 'Pilih makanan terlebih dahulu',
+        toastLength: Toast.LENGTH_SHORT,
+        gravity: ToastGravity.BOTTOM,
+        backgroundColor: Colors.orange,
+        textColor: Colors.white,
+      );
+      return;
+    }
+
+    setState(() {
+      isLoading = true;
+    });
+
     try {
       var jumlahDipilih = [];
       double energi = 0;
@@ -119,17 +121,16 @@ class _TambahKaloriState extends State<TambahKalori> {
         jumlahDipilih.add(selectedFood['jumlahDipilih']);
         idMakanan.add(selectedFood['id_makanan']);
         energi += selectedFood['jumlahDipilih'] *
-            double.tryParse(selectedFood['energi'].toString());
+            double.tryParse(selectedFood['energi'].toString())!;
       });
 
       var response = await http.post(
         Uri.parse(apiUrl),
         headers: {
-          'Authorization': 'Bearer $accessToken',
           'Content-Type': 'application/json',
         },
         body: jsonEncode({
-          'id_user': Id,
+          'id_user': Id, // 🟡 Pakai ID dummy '1'
           'total_kalori': energi,
           'keterangan': widget.keterangan,
           'bahan_makanan_nama_makanan': idMakanan,
@@ -139,6 +140,7 @@ class _TambahKaloriState extends State<TambahKalori> {
 
       print('Response Simpan Data');
       print(response.body);
+
       if (response.statusCode == 200) {
         Fluttertoast.showToast(
           msg: 'Berhasil Kirim Data',
@@ -147,12 +149,32 @@ class _TambahKaloriState extends State<TambahKalori> {
           backgroundColor: Colors.green,
           textColor: Colors.white,
         );
-        Navigator.pop(context);
+        Navigator.pop(context, true);
       } else {
         print('Gagal mengirim data: ${response.statusCode}');
+        Fluttertoast.showToast(
+          msg: 'Gagal Kirim Data',
+          toastLength: Toast.LENGTH_LONG,
+          gravity: ToastGravity.BOTTOM,
+          backgroundColor: Colors.red,
+          textColor: Colors.white,
+        );
+        setState(() {
+          isLoading = false;
+        });
       }
     } catch (e) {
       print('Gagal mengirim data: $e');
+      Fluttertoast.showToast(
+        msg: 'Gagal Kirim Data',
+        toastLength: Toast.LENGTH_LONG,
+        gravity: ToastGravity.BOTTOM,
+        backgroundColor: Colors.red,
+        textColor: Colors.white,
+      );
+      setState(() {
+        isLoading = false;
+      });
     }
   }
 
@@ -205,200 +227,273 @@ class _TambahKaloriState extends State<TambahKalori> {
     return Scaffold(
       bottomNavigationBar: BottomNavBar(selected: 1),
       appBar: AppBar(
-        title: Text('Tambah Kalori Harian'),
-        backgroundColor: SecondaryColor,
+        title: Text('Tambah Makanan'),
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black87,
+        elevation: 0,
+        centerTitle: true,
       ),
-      floatingActionButton: FloatingActionButton(
-        tooltip: "Tambah Kalori",
-        onPressed: () {
-          kirimData();
-        },
-        child: Icon(Icons.save),
-        backgroundColor: SecondaryColor,
-      ),
-      body: SingleChildScrollView(
-        child: Stack(children: [
-          SafeArea(
-            child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: 15.0),
-                child: Container(
-                  width: MediaQuery.of(context).size.width,
-                  child: Stack(
-                    children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Container(
-                            padding: EdgeInsets.all(20),
-                            child: Text(
-                              'Makan Apa Hari Ini?',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
+      floatingActionButton: isLoading
+          ? FloatingActionButton(
+              onPressed: null,
+              backgroundColor: Colors.grey,
+              child: CircularProgressIndicator(color: Colors.white),
+            )
+          : FloatingActionButton.extended(
+              onPressed: () {
+                kirimData();
+              },
+              icon: Icon(Icons.save),
+              label: Text('Simpan'),
+              backgroundColor: SecondaryColor,
+            ),
+      body: SafeArea(
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(height: 16),
+              Text(
+                'Makan Apa Hari Ini?',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
+              ),
+              SizedBox(height: 16),
+              TextFormField(
+                onTap: () {
+                  FocusScope.of(context).requestFocus(FocusNode());
+                  showMaterialModalBottomSheet(
+                    context: context,
+                    builder: (context) => mCariMakan(),
+                  );
+                },
+                readOnly: true,
+                decoration: InputDecoration(
+                  hintText: 'Cari makanan...',
+                  prefixIcon: Icon(Icons.search, color: Colors.grey[600]),
+                  filled: true,
+                  fillColor: Colors.grey[50],
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: Colors.grey[300]!),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: SecondaryColor),
+                  ),
+                  contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                ),
+              ),
+              SizedBox(height: 24),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Makanan Terpilih',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  Text(
+                    '${selectedFoods.length} item',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                ],
+              ),
+              SizedBox(height: 12),
+              if (selectedFoods.isEmpty)
+                Expanded(
+                  child: Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.restaurant_outlined,
+                          size: 64,
+                          color: Colors.grey[400],
+                        ),
+                        SizedBox(height: 16),
+                        Text(
+                          'Belum ada makanan yang dipilih',
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Colors.grey[600],
                           ),
-                          Container(
-                            padding: EdgeInsets.only(left: 20, right: 20),
-                            child: TextFormField(
-                              onTap: () {
-                                FocusScope.of(context)
-                                    .requestFocus(FocusNode());
-                                showMaterialModalBottomSheet(
-                                    context: context,
-                                    builder: (context) => mCariMakan());
-                              },
-                              decoration: InputDecoration(
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                prefixIcon: Icon(Icons.search),
-                                hintText: "Cari makanan",
-                              ),
-                            ),
+                        ),
+                        SizedBox(height: 8),
+                        Text(
+                          'Tambahkan makanan dari pencarian',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey[500],
                           ),
-                          SizedBox(
-                            height: 20,
-                          ),
-                          Container(
-                            padding: EdgeInsets.all(20),
-                            child: Text(
-                              'Makanan yang Dipilih',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                          ListView.builder(
-                            shrinkWrap: true,
-                            physics: NeverScrollableScrollPhysics(),
-                            itemCount: selectedFoods.length,
-                            itemBuilder: (context, index) {
-                              final selectedFood = selectedFoods[index];
-                              final namaMakanan = selectedFood['nama_makanan'];
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              else
+                Expanded(
+                  child: ListView.builder(
+                    itemCount: selectedFoods.length,
+                    itemBuilder: (context, index) {
+                      final selectedFood = selectedFoods[index];
+                      final namaMakanan = selectedFood['nama_makanan'];
+                      final energiString = selectedFood['energi'];
+                      final energi = double.tryParse(energiString) ?? 0.0;
+                      final jumlahDipilih = selectedFood['jumlahDipilih'] as int;
+                      final totalEnergi = energi * jumlahDipilih;
 
-                              // Mengambil energi dari selectedFood sebagai String
-                              final energiString = selectedFood['energi'];
-                              final energi = double.tryParse(energiString) ?? 0.0;
-                              final jumlahDipilih = selectedFood['jumlahDipilih'] as int;
-                              final totalEnergi = energi * jumlahDipilih;
-
-                              return Container(
-                                margin: EdgeInsets.only(bottom: 10),
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(10),
-                                  boxShadow: [boxShadow],
-                                ),
-                                child: ExpansionTile(
-                                  title: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        '$namaMakanan',
-                                        style: TextStyle(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                      Text(
-                                        '${selectedFood['nama_kategori']}',
-                                        style: TextStyle(fontSize: 12),
-                                      ),
-                                      Row(
-                                        children: [
-                                          Expanded(
-                                            child: Text(
-                                              'Jumlah Energi: $totalEnergi',
-                                              style: TextStyle(
-                                                fontSize: 14,
-                                                fontWeight: FontWeight.w500,
-                                              ),
-                                            ),
-                                          ),
-                                          IconButton(
-                                              onPressed: () {
-                                                setState(() {
-                                                  selectedFood['jumlahDipilih'] -= 1;
-                                                  if (selectedFood['jumlahDipilih'] < 0) {
-                                                    selectedFood['jumlahDipilih'] = 0;
-                                                  }
-                                                });
-                                              },
-                                              icon: Icon(Icons.remove)),
-                                          Text('$jumlahDipilih',
-                                              style: TextStyle(
-                                                  fontSize: 14,
-                                                  fontWeight: FontWeight.bold)),
-                                          IconButton(
-                                              onPressed: () {
-                                                setState(() {
-                                                  selectedFood['jumlahDipilih'] += 1;
-                                                });
-                                              },
-                                              icon: Icon(Icons.add)),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
+                      return Card(
+                        margin: EdgeInsets.only(bottom: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        elevation: 1,
+                        child: ExpansionTile(
+                          title: Row(
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Container(
-                                      padding: EdgeInsets.all(16),
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            'Nutrisi:',
-                                            style: TextStyle(
-                                              fontSize: 14,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
-                                          SizedBox(height: 4),
-                                          _buildNutritionRow('Karbohidrat', selectedFood['karbohidrat']),
-                                          _buildNutritionRow('Protein', selectedFood['protein']),
-                                          _buildNutritionRow('Lemak', selectedFood['lemak']),
-                                          _buildNutritionRow('Vitamin A', selectedFood['vitamina']),
-                                          _buildNutritionRow('Vitamin C', selectedFood['vitaminc']),
-                                          _buildNutritionRow('Besi', selectedFood['besi']),
-                                        ],
+                                    Text(
+                                      namaMakanan,
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.black87,
+                                      ),
+                                    ),
+                                    Text(
+                                      selectedFood['nama_kategori'],
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.grey[600],
                                       ),
                                     ),
                                   ],
                                 ),
-                              );
-                            },
+                              ),
+                              Chip(
+                                label: Text(
+                                  '$jumlahDipilih',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                backgroundColor: Colors.blue[50],
+                                labelStyle: TextStyle(color: Colors.blue[700]),
+                              ),
+                              SizedBox(width: 8),
+                              Chip(
+                                label: Text(
+                                  '${totalEnergi.toStringAsFixed(0)} kcal',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                backgroundColor: Colors.green[50],
+                                labelStyle: TextStyle(color: Colors.green[700]),
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
-                    ],
+                          children: [
+                            Padding(
+                              padding: EdgeInsets.all(16),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Nutrisi',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.grey[700],
+                                    ),
+                                  ),
+                                  SizedBox(height: 8),
+                                  Wrap(
+                                    spacing: 8,
+                                    runSpacing: 4,
+                                    children: [
+                                      _buildNutritionChip('Karbo', selectedFood['karbohidrat']),
+                                      _buildNutritionChip('Protein', selectedFood['protein']),
+                                      _buildNutritionChip('Lemak', selectedFood['lemak']),
+                                      _buildNutritionChip('Vit A', selectedFood['vitamina'], isVitamin: true, color: Colors.blue[100]),
+                                      _buildNutritionChip('Vit C', selectedFood['vitaminc'], isVitamin: true, color: Colors.green[100]),
+                                      _buildNutritionChip('Besi', selectedFood['besi']),
+                                    ],
+                                  ),
+                                  SizedBox(height: 12),
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.end,
+                                    children: [
+                                      IconButton(
+                                        onPressed: () {
+                                          setState(() {
+                                            selectedFood['jumlahDipilih'] -= 1;
+                                            if (selectedFood['jumlahDipilih'] < 1) {
+                                              selectedFoods.removeAt(index);
+                                            }
+                                          });
+                                        },
+                                        icon: Icon(Icons.remove_circle_outline, color: Colors.red),
+                                      ),
+                                      IconButton(
+                                        onPressed: () {
+                                          setState(() {
+                                            selectedFood['jumlahDipilih'] += 1;
+                                          });
+                                        },
+                                        icon: Icon(Icons.add_circle_outline, color: Colors.green),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
                   ),
-                )),
+                ),
+            ],
           ),
-        ]),
+        ),
       ),
     );
   }
 
-  Widget _buildNutritionRow(String label, dynamic value) {
-    return Row(
-      children: [
-        Text(
-          '$label: ',
-          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
-        ),
-        Text(
-          value?.toString() ?? '-',
-          style: TextStyle(fontSize: 12),
-        ),
-      ],
+  Widget _buildNutritionChip(String label, dynamic value, {bool isVitamin = false, Color? color}) {
+    return Chip(
+      label: Text(
+        '$label: ${value?.toString() ?? '-'}',
+        style: TextStyle(fontSize: 11),
+      ),
+      backgroundColor: isVitamin ? color : Colors.grey[100],
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: BorderSide(color: Colors.grey[300]!),
+      ),
     );
   }
 
   Widget mCariMakan() {
     return Container(
-      margin: EdgeInsets.only(top: 10),
+      padding: EdgeInsets.only(top: 16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.only(
@@ -406,121 +501,117 @@ class _TambahKaloriState extends State<TambahKalori> {
           topRight: Radius.circular(20),
         ),
       ),
-      height: 400,
       child: Column(
         children: [
           Container(
-            padding: EdgeInsets.only(left: 20, right: 20),
-            margin: EdgeInsets.symmetric(vertical: 8),
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: Colors.grey[300],
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          SizedBox(height: 16),
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16),
             child: TextFormField(
               controller: searchController,
               onChanged: (query) {
                 filterFoodList(query);
               },
               decoration: InputDecoration(
+                hintText: 'Cari makanan...',
+                prefixIcon: Icon(Icons.search, color: Colors.grey[600]),
+                filled: true,
+                fillColor: Colors.grey[50],
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: Colors.grey[300]!),
                 ),
-                prefixIcon: Icon(Icons.search),
-                hintText: "Cari makanan",
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: SecondaryColor),
+                ),
+                contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               ),
             ),
           ),
+          SizedBox(height: 16),
           Expanded(
-              child: Container(
-            height: double.infinity,
             child: ListView.builder(
               itemCount: filteredFoodData.length,
               itemBuilder: (context, index) {
                 final foodItem = filteredFoodData[index];
-                return GestureDetector(
+                return InkWell(
                   onTap: () {
                     TambahMakanan(foodItem['id_makanan'], index);
                     Navigator.pop(context);
                   },
-                  child: Card(
-                    elevation: 2,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
+                  child: Container(
+                    padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                     margin: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                    child: Padding(
-                      padding: EdgeInsets.all(12),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            foodItem['nama_makanan'],
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.grey[200]!),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    foodItem['nama_makanan'],
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.black87,
+                                    ),
+                                  ),
+                                  Text(
+                                    foodItem['nama_kategori'],
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey[600],
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
-                          ),
-                          SizedBox(height: 4),
-                          Text(
-                            'Kategori: ${foodItem['nama_kategori']}',
-                            style: TextStyle(fontSize: 14, color: Colors.grey[700]),
-                          ),
-                          Divider(color: Colors.grey[300], height: 16),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                'Energi: ${foodItem['energi']}',
-                                style: TextStyle(fontWeight: FontWeight.w600),
-                              ),
-                              Text(
-                                'Karbo: ${foodItem['karbohidrat'] ?? '-'}',
+                            Chip(
+                              label: Text(
+                                '${foodItem['energi']} kcal',
                                 style: TextStyle(fontSize: 12),
                               ),
-                            ],
-                          ),
-                          SizedBox(height: 4),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                'Protein: ${foodItem['protein'] ?? '-'}',
-                                style: TextStyle(fontSize: 12),
-                              ),
-                              Text(
-                                'Lemak: ${foodItem['lemak'] ?? '-'}',
-                                style: TextStyle(fontSize: 12),
-                              ),
-                            ],
-                          ),
-                          SizedBox(height: 4),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                'Vit A: ${foodItem['vitamina'] ?? '-'}',
-                                style: TextStyle(fontSize: 12),
-                              ),
-                              Text(
-                                'Vit C: ${foodItem['vitaminc'] ?? '-'}',
-                                style: TextStyle(fontSize: 12),
-                              ),
-                            ],
-                          ),
-                          SizedBox(height: 4),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                'Besi: ${foodItem['besi'] ?? '-'}',
-                                style: TextStyle(fontSize: 12),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
+                              backgroundColor: Colors.green[50],
+                              labelStyle: TextStyle(color: Colors.green[700]),
+                            ),
+                          ],
+                        ),
+                        SizedBox(height: 8),
+                        Wrap(
+                          spacing: 4,
+                          runSpacing: 4,
+                          children: [
+                            _buildNutritionChip('Karbo', foodItem['karbohidrat']),
+                            _buildNutritionChip('Protein', foodItem['protein']),
+                            _buildNutritionChip('Lemak', foodItem['lemak']),
+                            _buildNutritionChip('Vit A', foodItem['vitamina'], isVitamin: true, color: Colors.blue[100]),
+                            _buildNutritionChip('Vit C', foodItem['vitaminc'], isVitamin: true, color: Colors.green[100]),
+                            _buildNutritionChip('Besi', foodItem['besi']),
+                          ],
+                        ),
+                      ],
                     ),
                   ),
                 );
               },
             ),
-          ))
+          ),
         ],
       ),
     );

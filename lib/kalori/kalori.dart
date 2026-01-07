@@ -30,8 +30,6 @@ class _KaloriState extends State<Kalori> {
   String clientId = "PKL2023";
   String clientSecret = "PKLSERU";
 
-
-
   @override
   void initState() {
     super.initState();
@@ -58,8 +56,6 @@ class _KaloriState extends State<Kalori> {
       throw Exception('Failed to load data from API');
     }
   }
-
- 
 
   Future<void> loadUserDataAndFetchData() async {
     await loadUserData(); // Menunggu hingga loadUserData selesai
@@ -107,10 +103,20 @@ class _KaloriState extends State<Kalori> {
       setState(() {
         data = jsonResponse['response'];
         KebutuhanKalori = jsonResponse['dataUser']['kalori'];
-        // Hitung total energi
+
+        // ✅ SAFE PARSING: Gunakan tryParse dan fallback 0.0
         totalEnergi = data
-            .map((item) => double.parse(item['kalori']))
-            .fold(0.0, (prev, curr) => prev + curr); // Change 0 to 0.0
+            .map((item) {
+              final kaloriStr = item['kalori']?.toString() ?? '0';
+              return double.tryParse(kaloriStr) ?? 0.0;
+            })
+            .fold(0.0, (prev, curr) => prev + curr);
+
+        // ✅ DEBUG: Print tiap item untuk verifikasi
+        print("=== DATA KONSUMSI ===");
+        data.forEach((item) {
+          print("Nama: ${item['nama_makanan']}, Kalori: ${item['kalori']}");
+        });
       });
     } else {
       throw Exception('Failed to load data');
@@ -127,7 +133,7 @@ class _KaloriState extends State<Kalori> {
 
     print(Id);
     String fetkal = base_url +
-        "api/Makanan/konsumsi?id_user=$Id&waktu=$formattedDate&keterangan=$keterangan";
+        "API/Makanan/konsumsi?id_user=$Id&waktu=$formattedDate&keterangan=$keterangan";
     final response = await http.get(
       Uri.parse(fetkal),
     );
@@ -165,7 +171,7 @@ class _KaloriState extends State<Kalori> {
 
     print(Id);
     String fetkal = base_url +
-        "api/Makanan/kalorikonsumsi?id_user=$Id&waktu=$formattedDate&keterangan=$keterangan";
+        "API/Makanan/kalorikonsumsi?id_user=$Id&waktu=$formattedDate&keterangan=$keterangan";
     final response = await http.get(
       Uri.parse(fetkal),
     );
@@ -186,13 +192,13 @@ class _KaloriState extends State<Kalori> {
       dataKonsumsi = jsonResponse['response'];
       setState(() {
         dataKonsumsi.forEach((item) {
-          totalKarbohidrat += double.parse(item['karbohidrat']);
-          totalLemak += double.parse(item['lemak']);
-          totalProtein += double.parse(item['protein']);
-          totalZatBesi += double.parse(item['besi']);
-          totalVitaminA += double.parse(item['vitamina']);
-          totalVitaminC += double.parse(item['vitaminc']);
-          totalKaloriKonsumsi += double.parse(item['kalori']);
+          totalKarbohidrat += double.tryParse(item['karbohidrat']?.toString() ?? '0') ?? 0.0;
+          totalLemak += double.tryParse(item['lemak']?.toString() ?? '0') ?? 0.0;
+          totalProtein += double.tryParse(item['protein']?.toString() ?? '0') ?? 0.0;
+          totalZatBesi += double.tryParse(item['besi']?.toString() ?? '0') ?? 0.0;
+          totalVitaminA += double.tryParse(item['vitamina']?.toString() ?? '0') ?? 0.0;
+          totalVitaminC += double.tryParse(item['vitaminc']?.toString() ?? '0') ?? 0.0;
+          totalKaloriKonsumsi += double.tryParse(item['kalori']?.toString() ?? '0') ?? 0.0;
         });
         //pembulatan 2 angka dibelakang koma
         totalKarbohidrat = double.parse(totalKarbohidrat.toStringAsFixed(2));
@@ -370,7 +376,7 @@ class _KaloriState extends State<Kalori> {
                                 data.forEach((item) {
                                   if (item['keterangan'].toLowerCase() ==
                                       judul2.toLowerCase()) {
-                                    jmlKalori += double.parse(item['kalori']);
+                                    jmlKalori += double.tryParse(item['kalori']?.toString() ?? '0') ?? 0.0;
                                   }
                                 });
                                 if (jmlKalori > 0) {
@@ -430,15 +436,22 @@ class _KaloriState extends State<Kalori> {
                                                 child: IconButton(
                                                 icon: Icon(Icons.add,
                                                     color: PrimaryColor),
-                                                onPressed: () {
-                                                  Navigator.push(
-                                                      context,
-                                                      MaterialPageRoute(
-                                                        builder: (context) =>
-                                                            TambahKalori(
-                                                                keterangan:
-                                                                    judul2),
-                                                      ));
+                                                onPressed: () async {
+                                                  // ✅ Perbaikan: Gunakan await dan cek hasil
+                                                  final result = await Navigator.push(
+                                                    context,
+                                                    MaterialPageRoute(
+                                                      builder: (context) =>
+                                                          TambahKalori(
+                                                              keterangan:
+                                                                  judul2),
+                                                    ),
+                                                  );
+
+                                                  if (result == true) {
+                                                    // Refresh data setelah kembali
+                                                    loadUserDataAndFetchData();
+                                                  }
                                                 },
                                               )),
                                       ],
