@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:isi_piringku/util/colors.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:isi_piringku/Login/login_screen.dart';
 import 'package:isi_piringku/dashboard/dashboard.dart';
@@ -75,24 +76,24 @@ class _SplashScreenState extends State<SplashScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             // Logo atau icon aplikasi
-            Icon(
-              Icons.restaurant_menu,
-              size: 80,
-              color: Colors.green[600],
+            Image.asset(
+              'assets/images/logo_isipiringku.png',
+              width: 150,
+              height: 150,
             ),
             const SizedBox(height: 20),
             Text(
-              'Isi Piringku',
+              'SEPIRINGQ',
               style: TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
-                color: Colors.green[600],
+                color: PrimaryColor,
               ),
             ),
             const SizedBox(height: 40),
             // Loading indicator
             CircularProgressIndicator(
-              valueColor: AlwaysStoppedAnimation<Color>(Colors.green[600]!),
+              valueColor: AlwaysStoppedAnimation<Color>(PrimaryColor!),
             ),
           ],
         ),

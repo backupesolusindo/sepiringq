@@ -13,7 +13,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../util/core.dart';
 
 class TambahBB extends StatefulWidget {
-  TambahBB({Key? key});
+  const TambahBB({super.key});
 
   @override
   State<TambahBB> createState() => _TambahBBState();
@@ -29,7 +29,7 @@ class _TambahBBState extends State<TambahBB> {
   String clientSecret = "PKLSERU";
   String tokenUrl = base_url + "api/Token/token";
   String apiUrl = base_url + "api/BeratBadan/tambahBB";
-  String accessToken = "";  
+  String accessToken = "";
   List<Map<String, dynamic>> foodData = [];
   bool isSearching = false;
   int cardValue = 0;

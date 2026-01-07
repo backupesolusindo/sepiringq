@@ -25,10 +25,18 @@ class _BeratBadanState extends State<BeratBadan> {
     SecondaryColor,
     PrimaryColor,
   ];
-  String Id = "";
-  DateTime startDate =
-      DateTime.now().subtract(const Duration(days: 30)); // 7 hari terakhir
+
+  List<Color> imtGradientColors = [
+    Colors.orange,
+    Colors.red,
+  ];
+
+  String id = "";
+  double tinggiBadan = 0.0;
+  DateTime startDate = DateTime.now().subtract(const Duration(days: 30));
   DateTime endDate = DateTime.now();
+  bool showIMT = true;
+  bool showBeratBadan = true;
 
   Future<void> loadUserData() async {
     final prefs = await SharedPreferences.getInstance();
@@ -36,60 +44,67 @@ class _BeratBadanState extends State<BeratBadan> {
 
     if (userDataString != null) {
       final userData = UserData.fromJson(json.decode(userDataString));
-      print(userData.nama);
 
       setState(() {
-        Id = userData.idUser.toString();
+        id = userData.idUser.toString();
+        tinggiBadan = double.tryParse(userData.tinggiBadan) ?? 0.0;
         fetchData();
       });
     }
   }
 
   List<FlSpot> arBeratBadan = [];
-  List LabelData = [];
+  List<FlSpot> arIMT = [];
+  List labelData = [];
 
   Future<void> fetchData() async {
     String start = DateFormat('yyyy-MM-dd').format(startDate);
     String end = DateFormat('yyyy-MM-dd').format(endDate);
-    if (Id.isEmpty) {
-      // Pastikan Id tidak kosong sebelum membuat permintaan http
+    if (id.isEmpty) {
       return;
     }
 
     arBeratBadan = [];
+    arIMT = [];
 
-    print(Id);
-    String fetkal = base_url +
-        "api/BeratBadan/getBeratBadan?id_user=$Id&start=$start&end=$end'";
-    final response = await http.get(
-      Uri.parse(fetkal),
-    );
-
-    print("Response BeratBedan:");
-    print(fetkal);
-    print(response.body);
+    String fetchUrl =
+        "${base_url}api/BeratBadan/getBeratBadan?id_user=$id&start=$start&end=$end";
+    final response = await http.get(Uri.parse(fetchUrl));
 
     if (response.statusCode == 200) {
       final jsonResponse = json.decode(response.body);
       setState(() {
         var data = jsonResponse['response']['dataGraf'];
-        LabelData = jsonResponse['response']['dataLabel'];
+        labelData = jsonResponse['response']['dataLabel'];
         for (var i = 0; i < data.length; i++) {
-          arBeratBadan.add(FlSpot(i.toDouble(), double.parse(data[i]['bb'])));
+          double beratBadan = double.parse(data[i]['bb']);
+          arBeratBadan.add(FlSpot(i.toDouble(), beratBadan));
+
+          // Hitung IMT jika tinggi badan tersedia
+          if (tinggiBadan > 0) {
+            double tinggiMeter = tinggiBadan / 100;
+            double imt = beratBadan / (tinggiMeter * tinggiMeter);
+            arIMT.add(FlSpot(i.toDouble(), imt));
+          }
         }
-        // arBeratBadan = [
-        //   FlSpot(0, 3),
-        //   FlSpot(1, 2),
-        //   FlSpot(2, 5),
-        //   FlSpot(3, 3.1),
-        //   FlSpot(4, 4),
-        //   FlSpot(5, 3),
-        //   FlSpot(6, 4),
-        // ];
       });
     } else {
       throw Exception('Failed to load data');
     }
+  }
+
+  String getIMTCategory(double imt) {
+    if (imt < 18.5) return 'Kurus';
+    if (imt < 25.0) return 'Normal';
+    if (imt < 30.0) return 'Gemuk';
+    return 'Obesitas';
+  }
+
+  Color getIMTColor(double imt) {
+    if (imt < 18.5) return Colors.blue;
+    if (imt < 25.0) return Colors.green;
+    if (imt < 30.0) return Colors.orange;
+    return Colors.red;
   }
 
   Future<void> _selectStartDate(BuildContext context) async {
@@ -134,7 +149,7 @@ class _BeratBadanState extends State<BeratBadan> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(
+        title: const Text(
           'BERAT BADAN',
           style: TextStyle(
             color: TextColordark,
@@ -145,165 +160,346 @@ class _BeratBadanState extends State<BeratBadan> {
       ),
       bottomNavigationBar: const BottomNavBar(selected: 5),
       body: Container(
-          margin: EdgeInsets.only(left: 16, right: 16),
+          margin: const EdgeInsets.only(left: 16, right: 16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
-              SizedBox(
-                height: 16,
-              ),
-              Text("Grafik Berat Badan",
-                  style: TextStyle(
-                    color: TextColordark,
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  )),
-              Container(
-                  margin: EdgeInsets.only(top: 16),
-                  padding: EdgeInsets.only(top: 8),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(8),
-                    boxShadow: [
-                      boxShadow,
-                    ],
-                  ),
-                  child: Column(
+              const SizedBox(height: 16),
+
+              // Header dengan toggle
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text("Grafik Berat Badan & IMT",
+                      style: TextStyle(
+                        color: TextColordark,
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      )),
+                  Column(
                     children: [
-                      Container(
-                        padding: EdgeInsets.only(left: 20, right: 20),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Column(
-                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                              children: [
-                                Text(
-                                    "Start Date: ${DateFormat('yyyy-MM-dd').format(startDate)}"),
-                                ElevatedButton(
-                                  onPressed: () => _selectStartDate(context),
-                                  child: Text("Select Start Date",
-                                      style: TextStyle(color: PrimaryColor)),
-                                ),
-                              ],
-                            ),
-                            Column(
-                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                              children: [
-                                Text(
-                                    "End Date: ${DateFormat('dd-MM-yyyy').format(endDate)}"),
-                                ElevatedButton(
-                                  onPressed: () => _selectEndDate(context),
-                                  child: const Text("Select End Date",
-                                      style: TextStyle(color: PrimaryColor)),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                      AspectRatio(
-                        aspectRatio: 1.5,
-                        child: Padding(
-                          padding: EdgeInsets.only(
-                              left: 0, right: 24, top: 16, bottom: 8),
-                          child: LineChart(
-                            mainData(),
-                          ),
-                        ),
-                      ),
-                    ],
-                  )),
-              SizedBox(
-                height: 24,
-              ),
-              GestureDetector(
-                onTap: () {
-                  Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => TambahBB(),
-                      ));
-                },
-                child: Container(
-                  height: 110,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(8),
-                    boxShadow: [
-                      boxShadow,
-                    ],
-                  ),
-                  child: Stack(
-                    alignment: Alignment.topLeft,
-                    children: <Widget>[
-                      ClipRRect(
-                        borderRadius: BorderRadius.all(Radius.circular(8.0)),
-                        child: SizedBox(
-                          height: 90,
-                          child: AspectRatio(
-                            aspectRatio: 1.714,
-                            child: Image.asset("assets/images/back.png"),
-                          ),
-                        ),
-                      ),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          Row(
-                            children: <Widget>[
-                              Padding(
-                                padding: const EdgeInsets.only(
-                                  left: 110,
-                                  right: 16,
-                                  top: 29,
-                                ),
-                                child: Text(
-                                  "Berapa Berat Kamu Hari Ini ?",
-                                  textAlign: TextAlign.left,
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.w500,
-                                    fontSize: 14,
-                                    letterSpacing: 0.0,
-                                    color: PrimaryColor,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.only(
-                              left: 110,
-                              bottom: 12,
-                              top: 4,
-                              right: 16,
-                            ),
-                            child: Text(
-                              "Tambah Berat Badan\nSimpan riwayat berat badan Anda untuk Analisa!",
-                              textAlign: TextAlign.left,
-                              style: TextStyle(
-                                fontWeight: FontWeight.w500,
-                                fontSize: 10,
-                                letterSpacing: 0.0,
-                                color: Colors.grey.withOpacity(0.5),
-                              ),
-                            ),
+                      // Toggle untuk Berat Badan
+                      Row(
+                        children: [
+                          const Text("BB", style: TextStyle(fontSize: 12)),
+                          Switch(
+                            value: showBeratBadan,
+                            onChanged: (value) {
+                              setState(() {
+                                showBeratBadan = value;
+                              });
+                            },
+                            activeThumbColor: PrimaryColor,
                           ),
                         ],
                       ),
-                      Positioned(
-                        top: 0,
-                        left: 0,
-                        child: SizedBox(
-                          width: 110,
+                      // Toggle untuk IMT (hanya jika tinggi badan tersedia)
+                      if (tinggiBadan > 0)
+                        Row(
+                          children: [
+                            const Text("IMT", style: TextStyle(fontSize: 12)),
+                            Switch(
+                              value: showIMT,
+                              onChanged: (value) {
+                                setState(() {
+                                  showIMT = value;
+                                });
+                              },
+                              activeThumbColor: PrimaryColor,
+                            ),
+                          ],
+                        ),
+                    ],
+                  ),
+                ],
+              ),
+
+              // Info tinggi badan
+              if (tinggiBadan > 0)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Text(
+                    "Tinggi Badan: ${tinggiBadan.toStringAsFixed(0)} cm",
+                    style: TextStyle(
+                      color: Colors.grey[600],
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
+
+              Expanded(
+                child: SingleChildScrollView(
+                  child: Column(
+                    children: [
+                      Container(
+                          margin: const EdgeInsets.only(top: 16),
+                          padding: const EdgeInsets.only(top: 8),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(8),
+                            boxShadow: const [
+                              boxShadow,
+                            ],
+                          ),
+                          child: Column(
+                            children: [
+                              Container(
+                                padding:
+                                    const EdgeInsets.only(left: 20, right: 20),
+                                child: Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Column(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceEvenly,
+                                      children: [
+                                        Text(
+                                            "Start Date: ${DateFormat('yyyy-MM-dd').format(startDate)}"),
+                                        ElevatedButton(
+                                          onPressed: () =>
+                                              _selectStartDate(context),
+                                          child: const Text("Select Start Date",
+                                              style: TextStyle(
+                                                  color: PrimaryColor)),
+                                        ),
+                                      ],
+                                    ),
+                                    Column(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceEvenly,
+                                      children: [
+                                        Text(
+                                            "End Date: ${DateFormat('dd-MM-yyyy').format(endDate)}"),
+                                        ElevatedButton(
+                                          onPressed: () =>
+                                              _selectEndDate(context),
+                                          child: const Text("Select End Date",
+                                              style: TextStyle(
+                                                  color: PrimaryColor)),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+
+                              // Legend
+                              if (showBeratBadan ||
+                                  (tinggiBadan > 0 && showIMT))
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 20, vertical: 8),
+                                  child: Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceEvenly,
+                                    children: [
+                                      if (showBeratBadan)
+                                        Row(
+                                          children: [
+                                            Container(
+                                              width: 16,
+                                              height: 3,
+                                              decoration: BoxDecoration(
+                                                gradient: LinearGradient(
+                                                    colors: gradientColors),
+                                                borderRadius:
+                                                    BorderRadius.circular(2),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 4),
+                                            const Text("Berat Badan (kg)",
+                                                style: TextStyle(fontSize: 12)),
+                                          ],
+                                        ),
+                                      if (tinggiBadan > 0 && showIMT)
+                                        Row(
+                                          children: [
+                                            Container(
+                                              width: 16,
+                                              height: 3,
+                                              decoration: BoxDecoration(
+                                                gradient: LinearGradient(
+                                                    colors: imtGradientColors),
+                                                borderRadius:
+                                                    BorderRadius.circular(2),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 4),
+                                            const Text("IMT",
+                                                style: TextStyle(fontSize: 12)),
+                                          ],
+                                        ),
+                                    ],
+                                  ),
+                                ),
+
+                              AspectRatio(
+                                aspectRatio: 1.5,
+                                child: Padding(
+                                  padding: const EdgeInsets.only(
+                                      left: 0, right: 24, top: 16, bottom: 8),
+                                  child: (showBeratBadan ||
+                                          (tinggiBadan > 0 && showIMT))
+                                      ? LineChart(mainData())
+                                      : const Center(
+                                          child: Text(
+                                            "Pilih minimal satu grafik untuk ditampilkan",
+                                            style: TextStyle(
+                                              fontSize: 16,
+                                              color: Colors.grey,
+                                            ),
+                                            textAlign: TextAlign.center,
+                                          ),
+                                        ),
+                                ),
+                              ),
+
+                              // IMT Categories Info
+                              if (tinggiBadan > 0 &&
+                                  showIMT &&
+                                  arIMT.isNotEmpty)
+                                Container(
+                                  padding: const EdgeInsets.all(16),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      const Text(
+                                        "Kategori IMT:",
+                                        style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 14),
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.spaceAround,
+                                        children: [
+                                          _buildIMTCategory(
+                                              "Kurus", "< 18.5", Colors.blue),
+                                          _buildIMTCategory("Normal",
+                                              "18.5-24.9", Colors.green),
+                                          _buildIMTCategory("Gemuk", "25-29.9",
+                                              Colors.orange),
+                                          _buildIMTCategory(
+                                              "Obesitas", "≥ 30", Colors.red),
+                                        ],
+                                      ),
+                                      if (arIMT.isNotEmpty)
+                                        Padding(
+                                          padding:
+                                              const EdgeInsets.only(top: 12),
+                                          child: Text(
+                                            "IMT Terakhir: ${arIMT.last.y.toStringAsFixed(1)} - ${getIMTCategory(arIMT.last.y)}",
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              color: getIMTColor(arIMT.last.y),
+                                              fontSize: 14,
+                                            ),
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                            ],
+                          )),
+                      const SizedBox(height: 24),
+                      GestureDetector(
+                        onTap: () {
+                          Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const TambahBB(),
+                              ));
+                        },
+                        child: Container(
                           height: 110,
-                          child: Image.asset("assets/images/runner.png"),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(8),
+                            boxShadow: const [
+                              boxShadow,
+                            ],
+                          ),
+                          child: Stack(
+                            alignment: Alignment.topLeft,
+                            children: <Widget>[
+                              ClipRRect(
+                                borderRadius: const BorderRadius.all(
+                                    Radius.circular(8.0)),
+                                child: SizedBox(
+                                  height: 90,
+                                  child: AspectRatio(
+                                    aspectRatio: 1.714,
+                                    child:
+                                        Image.asset("assets/images/back.png"),
+                                  ),
+                                ),
+                              ),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: <Widget>[
+                                  const Row(
+                                    children: <Widget>[
+                                      Padding(
+                                        padding: EdgeInsets.only(
+                                          left: 110,
+                                          right: 16,
+                                          top: 29,
+                                        ),
+                                        child: Text(
+                                          "Berapa Berat Kamu Hari Ini ?",
+                                          textAlign: TextAlign.left,
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.w500,
+                                            fontSize: 14,
+                                            letterSpacing: 0.0,
+                                            color: PrimaryColor,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  Padding(
+                                    padding: const EdgeInsets.only(
+                                      left: 110,
+                                      bottom: 12,
+                                      top: 4,
+                                      right: 16,
+                                    ),
+                                    child: Text(
+                                      "Tambah Berat Badan\nSimpan riwayat berat badan Anda untuk Analisa!",
+                                      textAlign: TextAlign.left,
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w500,
+                                        fontSize: 10,
+                                        letterSpacing: 0.0,
+                                        color:
+                                            Colors.grey.withValues(alpha: 0.5),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              Positioned(
+                                top: 0,
+                                left: 0,
+                                child: SizedBox(
+                                  width: 110,
+                                  height: 110,
+                                  child:
+                                      Image.asset("assets/images/runner.png"),
+                                ),
+                              )
+                            ],
+                          ),
                         ),
                       )
                     ],
                   ),
                 ),
-              )
+              ),
             ],
           )),
     );
@@ -314,7 +510,7 @@ class _BeratBadanState extends State<BeratBadan> {
       fontWeight: FontWeight.w600,
       fontSize: 11,
     );
-    String label = (!LabelData.isEmpty) ? LabelData[value.toInt()] : "";
+    String label = (labelData.isNotEmpty) ? labelData[value.toInt()] : "";
     Widget text;
     text = Text(
       label,
@@ -327,7 +523,80 @@ class _BeratBadanState extends State<BeratBadan> {
     );
   }
 
+  Widget _buildIMTCategory(String title, String range, Color color) {
+    return Column(
+      children: [
+        Container(
+          width: 12,
+          height: 12,
+          decoration: BoxDecoration(
+            color: color,
+            shape: BoxShape.circle,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          title,
+          style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+        ),
+        Text(
+          range,
+          style: const TextStyle(fontSize: 9, color: Colors.grey),
+        ),
+      ],
+    );
+  }
+
   LineChartData mainData() {
+    List<LineChartBarData> lineBarsData = [];
+
+    // Tambahkan grafik Berat Badan jika diaktifkan
+    if (showBeratBadan) {
+      lineBarsData.add(
+        LineChartBarData(
+          spots: arBeratBadan,
+          isCurved: true,
+          gradient: LinearGradient(
+            colors: gradientColors,
+          ),
+          barWidth: 3,
+          isStrokeCapRound: true,
+          dotData: const FlDotData(
+            show: true,
+          ),
+          belowBarData: BarAreaData(
+            show: true,
+            gradient: LinearGradient(
+              colors: gradientColors
+                  .map((color) => color.withValues(alpha: 0.3))
+                  .toList(),
+            ),
+          ),
+        ),
+      );
+    }
+
+    // Tambahkan grafik IMT jika tersedia dan diaktifkan
+    if (tinggiBadan > 0 && showIMT && arIMT.isNotEmpty) {
+      lineBarsData.add(
+        LineChartBarData(
+          spots: arIMT,
+          isCurved: true,
+          gradient: LinearGradient(
+            colors: imtGradientColors,
+          ),
+          barWidth: 3,
+          isStrokeCapRound: true,
+          dotData: const FlDotData(
+            show: true,
+          ),
+          belowBarData: BarAreaData(
+            show: false,
+          ),
+        ),
+      );
+    }
+
     return LineChartData(
       gridData: FlGridData(
         show: true,
@@ -363,6 +632,13 @@ class _BeratBadanState extends State<BeratBadan> {
             getTitlesWidget: bottomTitleWidgets,
           ),
         ),
+        leftTitles: AxisTitles(
+          sideTitles: SideTitles(
+            showTitles: true,
+            reservedSize: 42,
+            interval: showIMT && arIMT.isNotEmpty ? 5 : 10,
+          ),
+        ),
       ),
       borderData: FlBorderData(
         show: true,
@@ -370,29 +646,8 @@ class _BeratBadanState extends State<BeratBadan> {
       ),
       minX: 0,
       minY: 0,
-      maxY: 150,
-      lineBarsData: [
-        LineChartBarData(
-          spots: arBeratBadan,
-          isCurved: true,
-          gradient: LinearGradient(
-            colors: gradientColors,
-          ),
-          barWidth: 5,
-          isStrokeCapRound: true,
-          dotData: FlDotData(
-            show: true,
-          ),
-          belowBarData: BarAreaData(
-            show: true,
-            gradient: LinearGradient(
-              colors: gradientColors
-                  .map((color) => color.withOpacity(0.3))
-                  .toList(),
-            ),
-          ),
-        ),
-      ],
+      maxY: showIMT && arIMT.isNotEmpty ? 150 : 150,
+      lineBarsData: lineBarsData,
     );
   }
 
