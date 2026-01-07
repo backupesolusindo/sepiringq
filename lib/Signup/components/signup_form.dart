@@ -92,6 +92,16 @@ final TextEditingController umurController = TextEditingController();
     return;
   }
 
+  // ✅ Validasi panjang password minimal 6 karakter
+  if (passwordController.text.length < 6) {
+    Fluttertoast.showToast(
+      msg: 'Password harus minimal 6 karakter',
+      backgroundColor: Colors.red,
+      toastLength: Toast.LENGTH_LONG,
+    );
+    return;
+  }
+
   registerUser();
 }
 

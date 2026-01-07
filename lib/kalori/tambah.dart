@@ -5,8 +5,10 @@ import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
 import 'package:isi_piringku/bloc/nav/bottom_nav.dart';
 import 'package:isi_piringku/kalori/kalori.dart';
+import 'package:isi_piringku/model/user.dart';
 import 'package:isi_piringku/util/colors.dart';
 import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../util/core.dart';
 
@@ -28,12 +30,36 @@ class _TambahKaloriState extends State<TambahKalori> {
   String clientId = "PKL2023";
   String clientSecret = "PKLSERU";
   String apiUrl = base_url + "API/Konsumsi/Konsumsi";
-  String accessToken = ""; // tetap dibiarkan (tidak digunakan)
+  String accessToken = "";
   List<Map<String, dynamic>> foodData = [];
   bool isSearching = false;
   int cardValue = 0;
-  String Id = '1'; // ⚠️ Dummy ID — ganti dengan ID user nyata saat integrasi
+  String Id = ''; // ✅ FIXED: Akan diisi dari SharedPreferences
   bool isLoading = false;
+  bool isLoadingData = true;
+
+  // ✅ ADDED: Method untuk load user data
+  Future<void> loadUserData() async {
+    final prefs = await SharedPreferences.getInstance();
+    final userDataString = prefs.getString('user_data');
+
+    if (userDataString != null) {
+      final userData = UserData.fromJson(json.decode(userDataString));
+      setState(() {
+        Id = userData.idUser.toString();
+      });
+      print('✅ User ID loaded: $Id');
+    } else {
+      print('⚠️ User data not found in SharedPreferences');
+      Fluttertoast.showToast(
+        msg: 'Data user tidak ditemukan. Silakan login kembali.',
+        toastLength: Toast.LENGTH_LONG,
+        gravity: ToastGravity.BOTTOM,
+        backgroundColor: Colors.red,
+        textColor: Colors.white,
+      );
+    }
+  }
 
   Future<List<Map<String, dynamic>>> fetchData() async {
     try {
@@ -61,16 +87,29 @@ class _TambahKaloriState extends State<TambahKalori> {
   void initState() {
     super.initState();
 
-    // ❌ HAPUS loadUserData karena tidak bisa pakai SharedPreferences
-    // loadUserData(); // <-- DIHAPUS
+    // ✅ FIXED: Load user data terlebih dahulu
+    _initializeData();
+  }
 
-    fetchData().then((data) {
+  // ✅ ADDED: Initialize data dengan urutan yang benar
+  Future<void> _initializeData() async {
+    setState(() {
+      isLoadingData = true;
+    });
+
+    // Load user data first
+    await loadUserData();
+
+    // Then load food data
+    try {
+      final data = await fetchData();
       setState(() {
         foodData = data;
         filteredFoodData = data;
         cardValues = List.filled(foodData.length, 0);
+        isLoadingData = false;
       });
-    }).catchError((error) {
+    } catch (error) {
       Fluttertoast.showToast(
         msg: 'Gagal muat data makanan: $error',
         toastLength: Toast.LENGTH_LONG,
@@ -79,7 +118,10 @@ class _TambahKaloriState extends State<TambahKalori> {
         textColor: Colors.white,
       );
       print('Error fetching food data: $error');
-    });
+      setState(() {
+        isLoadingData = false;
+      });
+    }
   }
 
   void filterFoodList(String query) {
@@ -98,6 +140,18 @@ class _TambahKaloriState extends State<TambahKalori> {
   }
 
   Future<void> kirimData() async {
+    // ✅ ADDED: Validasi user ID
+    if (Id.isEmpty) {
+      Fluttertoast.showToast(
+        msg: 'User ID tidak ditemukan. Silakan login kembali.',
+        toastLength: Toast.LENGTH_LONG,
+        gravity: ToastGravity.BOTTOM,
+        backgroundColor: Colors.red,
+        textColor: Colors.white,
+      );
+      return;
+    }
+
     if (selectedFoods.isEmpty) {
       Fluttertoast.showToast(
         msg: 'Pilih makanan terlebih dahulu',
@@ -124,13 +178,21 @@ class _TambahKaloriState extends State<TambahKalori> {
             double.tryParse(selectedFood['energi'].toString())!;
       });
 
+      // ✅ ADDED: Debug print
+      print('🔵 Sending data:');
+      print('   id_user: $Id');
+      print('   total_kalori: $energi');
+      print('   keterangan: ${widget.keterangan}');
+      print('   bahan_makanan_nama_makanan: $idMakanan');
+      print('   kuantitas: $jumlahDipilih');
+
       var response = await http.post(
         Uri.parse(apiUrl),
         headers: {
           'Content-Type': 'application/json',
         },
         body: jsonEncode({
-          'id_user': Id, // 🟡 Pakai ID dummy '1'
+          'id_user': Id, // ✅ FIXED: Sekarang menggunakan ID dari SharedPreferences
           'total_kalori': energi,
           'keterangan': widget.keterangan,
           'bahan_makanan_nama_makanan': idMakanan,
@@ -149,11 +211,13 @@ class _TambahKaloriState extends State<TambahKalori> {
           backgroundColor: Colors.green,
           textColor: Colors.white,
         );
+        // ✅ FIXED: Return true to signal successful data addition
         Navigator.pop(context, true);
       } else {
-        print('Gagal mengirim data: ${response.statusCode}');
+        print('❌ Gagal mengirim data: ${response.statusCode}');
+        print('Response body: ${response.body}');
         Fluttertoast.showToast(
-          msg: 'Gagal Kirim Data',
+          msg: 'Gagal Kirim Data: ${response.statusCode}',
           toastLength: Toast.LENGTH_LONG,
           gravity: ToastGravity.BOTTOM,
           backgroundColor: Colors.red,
@@ -164,9 +228,9 @@ class _TambahKaloriState extends State<TambahKalori> {
         });
       }
     } catch (e) {
-      print('Gagal mengirim data: $e');
+      print('❌ Exception mengirim data: $e');
       Fluttertoast.showToast(
-        msg: 'Gagal Kirim Data',
+        msg: 'Gagal Kirim Data: $e',
         toastLength: Toast.LENGTH_LONG,
         gravity: ToastGravity.BOTTOM,
         backgroundColor: Colors.red,
@@ -224,6 +288,35 @@ class _TambahKaloriState extends State<TambahKalori> {
 
   @override
   Widget build(BuildContext context) {
+    // ✅ ADDED: Show loading screen while initializing
+    if (isLoadingData) {
+      return Scaffold(
+        appBar: AppBar(
+          title: Text('Tambah Makanan'),
+          backgroundColor: Colors.white,
+          foregroundColor: Colors.black87,
+          elevation: 0,
+          centerTitle: true,
+        ),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(height: 16),
+              Text(
+                'Memuat data makanan...',
+                style: TextStyle(
+                  color: Colors.grey[600],
+                  fontSize: 14,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       bottomNavigationBar: BottomNavBar(selected: 1),
       appBar: AppBar(

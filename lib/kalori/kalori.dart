@@ -47,7 +47,6 @@ class _KaloriState extends State<Kalori> {
   void initState() {
     super.initState();
     loadUserDataAndFetchData();
-    fetchData2();
   }
 
   Future<void> selectDate(BuildContext context) async {
@@ -80,8 +79,7 @@ class _KaloriState extends State<Kalori> {
         formattedDate = DateFormat('yyyy-MM-dd').format(selectedDate);
       });
       if (Id.isNotEmpty) {
-        fetchData();
-        fetchData2();
+        await refreshAllData();
       }
     }
   }
@@ -93,7 +91,7 @@ class _KaloriState extends State<Kalori> {
     try {
       final Uri apiUrl2 = Uri.parse(base_url + 'API/JadwalMakan/jadwal');
       final response = await http.get(apiUrl2);
-      print("Response Jadwal Makanan");
+      print("🔵 Response Jadwal Makanan");
       print(response.body);
       if (response.statusCode == 200) {
         final Map<String, dynamic> data = json.decode(response.body);
@@ -101,11 +99,12 @@ class _KaloriState extends State<Kalori> {
         setState(() {
           articles2 = responseList;
         });
+        print('✅ Jadwal loaded: ${articles2.length} items');
       } else {
         throw Exception('Failed to load data from API');
       }
     } catch (e) {
-      print('Error fetching jadwal: $e');
+      print('❌ Error fetching jadwal: $e');
     } finally {
       setState(() {
         isLoadingJadwal = false;
@@ -116,9 +115,17 @@ class _KaloriState extends State<Kalori> {
   Future<void> loadUserDataAndFetchData() async {
     await loadUserData();
     if (Id.isNotEmpty) {
-      fetchData();
-      fetchData2();
+      await refreshAllData();
     }
+  }
+
+  Future<void> refreshAllData() async {
+    print('🔄 Refreshing all data...');
+    await Future.wait([
+      fetchData(),
+      fetchData2(),
+    ]);
+    print('✅ All data refreshed');
   }
 
   Future<void> loadUserData() async {
@@ -127,11 +134,13 @@ class _KaloriState extends State<Kalori> {
 
     if (userDataString != null) {
       final userData = UserData.fromJson(json.decode(userDataString));
-      print(userData.nama);
+      print('✅ User loaded: ${userData.nama}');
 
       setState(() {
         Id = userData.idUser.toString();
       });
+    } else {
+      print('⚠️ User data not found');
     }
   }
 
@@ -139,6 +148,7 @@ class _KaloriState extends State<Kalori> {
 
   Future<void> fetchData() async {
     if (Id.isEmpty) {
+      print('⚠️ Cannot fetch data: Id is empty');
       return;
     }
 
@@ -146,22 +156,27 @@ class _KaloriState extends State<Kalori> {
       isLoading = true;
     });
     try {
-      print(Id);
+      print('🔵 Fetching konsumsi for user: $Id, date: $formattedDate');
       String fetkal = base_url + "API/Makanan/konsumsi?id_user=$Id&waktu=$formattedDate";
       final response = await http.get(
         Uri.parse(fetkal),
       );
 
-      print("Response Konsumsi");
+      print("🔵 Response Konsumsi");
       print(response.body);
-      print(Id);
 
       if (response.statusCode == 200) {
         final jsonResponse = json.decode(response.body);
-        print(jsonResponse);
+        print('✅ Konsumsi response received');
 
         setState(() {
           data = jsonResponse['response'];
+          print('📊 Total food items: ${data.length}');
+          
+          data.forEach((item) {
+            print('  - ${item['nama_makanan']} (${item['keterangan']}) = ${item['kalori']} kkal');
+          });
+
           KebutuhanKalori = jsonResponse['dataUser']['kalori'].toString();
           if (jsonResponse['dataUser']['akg'] != null) {
             akgData = jsonResponse['dataUser']['akg'];
@@ -176,12 +191,14 @@ class _KaloriState extends State<Kalori> {
           totalEnergi = data
               .map((item) => double.parse(item['kalori']))
               .fold(0.0, (prev, curr) => prev + curr);
+          
+          print('✅ Total energi: $totalEnergi kkal');
         });
       } else {
-        throw Exception('Failed to load data');
+        throw Exception('Failed to load data: ${response.statusCode}');
       }
     } catch (e) {
-      print('Error fetching  $e');
+      print('❌ Error fetching konsumsi: $e');
     } finally {
       setState(() {
         isLoading = false;
@@ -200,19 +217,27 @@ class _KaloriState extends State<Kalori> {
       isLoadingKonsumsi = true;
     });
     try {
-      print(Id);
+      print('🔵 Fetching detail for: $keterangan');
       String fetkal = base_url + "API/Makanan/konsumsi?id_user=$Id&waktu=$formattedDate&keterangan=$keterangan";
       final response = await http.get(
         Uri.parse(fetkal),
       );
 
-      print("Response Konsumsi Keterangan");
-      print(keterangan);
+      print("🔵 Response Konsumsi Keterangan: $keterangan");
       print(response.body);
       if (response.statusCode == 200) {
         final jsonResponse = json.decode(response.body);
         setState(() {
           dataKonsumsi = jsonResponse['response'];
+          print('✅ Detail items: ${dataKonsumsi.length}');
+          
+          // ✅ ADDED: Debug print untuk check quantity field
+          dataKonsumsi.forEach((item) {
+            print('  Food: ${item['nama_makanan']}');
+            print('    - kuantitas/jumlah: ${item['kuantitas'] ?? item['jumlah'] ?? item['qty'] ?? 'N/A'}');
+            print('    - Available keys: ${item.keys.toList()}');
+          });
+          
           isLoadingKonsumsi = false;
           showMaterialModalBottomSheet(
             context: context,
@@ -224,7 +249,7 @@ class _KaloriState extends State<Kalori> {
         throw Exception('Failed to load data');
       }
     } catch (e) {
-      print('Error fetching konsumsi: $e');
+      print('❌ Error fetching konsumsi detail: $e');
       setState(() {
         isLoadingKonsumsi = false;
       });
@@ -247,14 +272,13 @@ class _KaloriState extends State<Kalori> {
       isLoadingGrafik = true;
     });
     try {
-      print(Id);
+      print('🔵 Fetching grafik for: $keterangan');
       String fetkal = base_url + "API/Makanan/kalorikonsumsi?id_user=$Id&waktu=$formattedDate&keterangan=$keterangan";
       final response = await http.get(
         Uri.parse(fetkal),
       );
 
-      print("Response Konsumsi Grafik");
-      print(keterangan);
+      print("🔵 Response Konsumsi Grafik: $keterangan");
       print(response.body);
       double totalKarbohidrat = 0;
       double totalLemak = 0;
@@ -292,6 +316,7 @@ class _KaloriState extends State<Kalori> {
             "Total Vitamin A : $totalVitaminA": totalVitaminA,
             "Total Vitamin C : $totalVitaminC": totalVitaminC,
           };
+          print('✅ Grafik loaded');
           isLoadingGrafik = false;
           showMaterialModalBottomSheet(
             context: context,
@@ -303,7 +328,7 @@ class _KaloriState extends State<Kalori> {
         throw Exception('Failed to load data');
       }
     } catch (e) {
-      print('Error fetching grafik: $e');
+      print('❌ Error fetching grafik: $e');
       setState(() {
         isLoadingGrafik = false;
       });
@@ -728,10 +753,11 @@ class _KaloriState extends State<Kalori> {
                                               final String imageUrl2 = article2['gambar'];
                                               String keterangan = article2['nama'];
                                               
-                                              // === AGGREGATION LOGIC ===
-                                              final scheduleFoods = data.where((item) => 
-                                                item['keterangan'].toLowerCase() == keterangan.toLowerCase()
-                                              ).toList();
+                                              final scheduleFoods = data.where((item) {
+                                                final itemKeterangan = item['keterangan'].toString().trim().toLowerCase();
+                                                final searchKeterangan = keterangan.trim().toLowerCase();
+                                                return itemKeterangan == searchKeterangan;
+                                              }).toList();
                                               
                                               // Calculate aggregated nutrition
                                               double totalKalori = 0;
@@ -753,7 +779,6 @@ class _KaloriState extends State<Kalori> {
                                               }
                                               
                                               bool hasData = scheduleFoods.isNotEmpty;
-                                              // === END AGGREGATION ===
                                               
                                               return Container(
                                                 margin: const EdgeInsets.only(bottom: 12),
@@ -768,7 +793,6 @@ class _KaloriState extends State<Kalori> {
                                                     children: [
                                                       Row(
                                                         children: [
-                                                          // Meal Image
                                                           ClipRRect(
                                                             borderRadius: BorderRadius.circular(8),
                                                             child: Image.network(
@@ -790,7 +814,6 @@ class _KaloriState extends State<Kalori> {
                                                             ),
                                                           ),
                                                           const SizedBox(width: 12),
-                                                          // Meal Info
                                                           Expanded(
                                                             child: Column(
                                                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -817,7 +840,6 @@ class _KaloriState extends State<Kalori> {
                                                               ],
                                                             ),
                                                           ),
-                                                          // Action Buttons
                                                           hasData
                                                               ? Row(
                                                                   mainAxisSize: MainAxisSize.min,
@@ -855,7 +877,6 @@ class _KaloriState extends State<Kalori> {
                                                                     size: 24,
                                                                   ),
                                                                   onPressed: () async {
-                                                                    // Wait for result from TambahKalori page
                                                                     final result = await Navigator.push(
                                                                       context,
                                                                       MaterialPageRoute(
@@ -865,16 +886,14 @@ class _KaloriState extends State<Kalori> {
                                                                       ),
                                                                     );
                                                                     
-                                                                    // Refresh data if food was successfully added
                                                                     if (result == true) {
-                                                                      fetchData();  // Refresh consumption data
-                                                                      fetchData2(); // Refresh schedule data
+                                                                      print('🔄 Refreshing data after add...');
+                                                                      await refreshAllData();
                                                                     }
                                                                   },
                                                                 ),
                                                         ],
                                                       ),
-                                                      // === NUTRITION SUMMARY (REPLACES FOOD LIST) ===
                                                       const SizedBox(height: 12),
                                                       if (hasData)
                                                         Container(
@@ -980,7 +999,6 @@ class _KaloriState extends State<Kalori> {
                                                             ],
                                                           ),
                                                         ),
-                                                      // === END NUTRITION SUMMARY ===
                                                     ],
                                                   ),
                                                 ),
@@ -1012,7 +1030,6 @@ class _KaloriState extends State<Kalori> {
     );
   }
 
-  // === NEW HELPER WIDGET FOR COMPACT NUTRITION CHIPS ===
   Widget _buildCompactNutritionChip(IconData icon, String label, String value, String unit, Color color) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
@@ -1047,6 +1064,7 @@ class _KaloriState extends State<Kalori> {
     );
   }
 
+  // ✅ UPDATED: mDetailKalori with quantity display
   Widget mDetailKalori() {
     var size = MediaQuery.of(context).size;
     return Container(
@@ -1117,6 +1135,16 @@ class _KaloriState extends State<Kalori> {
                           final item = dataKonsumsi[index];
                           final String namaMakanan = item['nama_makanan'];
                           final String kategori = item['nama_kategori'] ?? 'Karbo';
+                          
+                          // ✅ ADDED: Get quantity - try multiple field names
+                          final int quantity = int.tryParse(
+                            (item['kuantitas'] ?? 
+                             item['jumlah'] ?? 
+                             item['qty'] ?? 
+                             item['quantity'] ?? 
+                             '1').toString()
+                          ) ?? 1;
+                          
                           final double kalori = double.parse(item['kalori']);
                           final double karbohidrat = double.parse(item['karbohidrat']);
                           final double protein = double.parse(item['protein']);
@@ -1138,6 +1166,38 @@ class _KaloriState extends State<Kalori> {
                               children: [
                                 Row(
                                   children: [
+                                    // ✅ ADDED: Quantity Badge
+                                    Container(
+                                      width: 32,
+                                      height: 32,
+                                      decoration: BoxDecoration(
+                                        gradient: LinearGradient(
+                                          colors: [
+                                            Colors.orange[400]!,
+                                            Colors.orange[600]!,
+                                          ],
+                                        ),
+                                        borderRadius: BorderRadius.circular(8),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: Colors.orange.withOpacity(0.3),
+                                            blurRadius: 4,
+                                            offset: Offset(0, 2),
+                                          ),
+                                        ],
+                                      ),
+                                      child: Center(
+                                        child: Text(
+                                          '${quantity}x',
+                                          style: const TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.white,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
                                     Expanded(
                                       child: Column(
                                         crossAxisAlignment: CrossAxisAlignment.start,
