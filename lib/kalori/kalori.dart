@@ -23,14 +23,23 @@ class _KaloriState extends State<Kalori> {
   List<dynamic> articles2 = [];
   final Map<String, List<Map<String, dynamic>>> groupedData = {};
   bool isLoading = false;
+  bool isLoadingJadwal = false;
+  bool isLoadingKonsumsi = false;
+  bool isLoadingGrafik = false;
   double totalEnergi = 0.0;
   String Id = '';
   String KebutuhanKalori = '0';
   String formattedDate = DateFormat('yyyy-MM-dd').format(DateTime.now());
   String clientId = "PKL2023";
   String clientSecret = "PKLSERU";
+  String umur = "-";
 
+  // AKG comparison data
+  Map<String, dynamic> akgData = {};
+  bool showAkgComparison = false;
 
+  // User data
+  Map<String, dynamic> userData = {};
 
   @override
   void initState() {
@@ -41,25 +50,32 @@ class _KaloriState extends State<Kalori> {
 
   Future<void> fetchData2() async {
     setState(() {
-      isLoading = true;
+      isLoadingJadwal = true;
     });
-    final Uri apiUrl2 = Uri.parse(base_url + 'API/JadwalMakan/jadwal');
-    final response = await http.get(apiUrl2);
-    print("Response Jadwal Makanan");
-    print(response.body);
-    if (response.statusCode == 200) {
-      final Map<String, dynamic> data = json.decode(response.body);
-      final List<dynamic> responseList = data['response'];
+
+    try {
+      final Uri apiUrl2 = Uri.parse(base_url + 'API/JadwalMakan/jadwal');
+      final response = await http.get(apiUrl2);
+      print("Response Jadwal Makanan");
+      print(response.body);
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> data = json.decode(response.body);
+        final List<dynamic> responseList = data['response'];
+        setState(() {
+          articles2 = responseList;
+        });
+      } else {
+        throw Exception('Failed to load data from API');
+      }
+    } catch (e) {
+      print('Error fetching jadwal: $e');
+    } finally {
       setState(() {
-        isLoading = false;
-        articles2 = responseList;
+        isLoadingJadwal = false;
       });
-    } else {
-      throw Exception('Failed to load data from API');
     }
   }
-
- 
 
   Future<void> loadUserDataAndFetchData() async {
     await loadUserData(); // Menunggu hingga loadUserData selesai
@@ -84,36 +100,60 @@ class _KaloriState extends State<Kalori> {
 
   Future<void> fetchData() async {
     if (Id.isEmpty) {
-      // Pastikan Id tidak kosong sebelum membuat permintaan http
       return;
     }
 
-    print(Id);
-    String fetkal =
-        base_url + "API/Makanan/konsumsi?id_user=$Id&waktu=$formattedDate";
-    final response = await http.get(
-      Uri.parse(fetkal),
-    );
+    setState(() {
+      isLoading = true;
+    });
 
-    print("Response Konsumsi");
-    print(response.body);
-    print(Id);
+    try {
+      print(Id);
+      String fetkal =
+          base_url + "API/Makanan/konsumsi?id_user=$Id&waktu=$formattedDate";
+      final response = await http.get(Uri.parse(fetkal));
 
-    if (response.statusCode == 200) {
-      print(Uri.parse);
-      final jsonResponse = json.decode(response.body);
-      print(jsonResponse);
+      print("Response Konsumsi");
+      print(response.body);
+      print(Id);
 
+      if (response.statusCode == 200) {
+        final jsonResponse = json.decode(response.body);
+        print(jsonResponse);
+
+        setState(() {
+          data = jsonResponse['response'];
+          KebutuhanKalori = jsonResponse['dataUser']['kalori'].toString();
+
+          // Store AKG data for comparison
+          if (jsonResponse['dataUser']['akg'] != null) {
+            akgData = jsonResponse['dataUser']['akg'];
+            showAkgComparison = true;
+          }
+
+          // Store user data
+          if (jsonResponse['dataUser']['user'] != null) {
+            userData = jsonResponse['dataUser']['user'];
+          }
+
+          if (jsonResponse['dataUser']['umur'] != null) {
+            umur = jsonResponse['dataUser']['umur'].toString();
+          }
+
+          // Hitung total energi
+          totalEnergi = data
+              .map((item) => double.parse(item['kalori']))
+              .fold(0.0, (prev, curr) => prev + curr);
+        });
+      } else {
+        throw Exception('Failed to load data');
+      }
+    } catch (e) {
+      print('Error fetching data: $e');
+    } finally {
       setState(() {
-        data = jsonResponse['response'];
-        KebutuhanKalori = jsonResponse['dataUser']['kalori'];
-        // Hitung total energi
-        totalEnergi = data
-            .map((item) => double.parse(item['kalori']))
-            .fold(0.0, (prev, curr) => prev + curr); // Change 0 to 0.0
+        isLoading = false;
       });
-    } else {
-      throw Exception('Failed to load data');
     }
   }
 
@@ -121,33 +161,42 @@ class _KaloriState extends State<Kalori> {
 
   Future<void> fetchDataKonsumsi(String keterangan) async {
     if (Id.isEmpty) {
-      // Pastikan Id tidak kosong sebelum membuat permintaan http
       return;
     }
 
-    print(Id);
-    String fetkal = base_url +
-        "api/Makanan/konsumsi?id_user=$Id&waktu=$formattedDate&keterangan=$keterangan";
-    final response = await http.get(
-      Uri.parse(fetkal),
-    );
+    setState(() {
+      isLoadingKonsumsi = true;
+    });
 
-    print("Response Konsumsi Keterangan");
-    print(keterangan);
-    print(response.body);
+    try {
+      print(Id);
+      String fetkal = base_url +
+          "API/Makanan/konsumsi?id_user=$Id&waktu=$formattedDate&keterangan=$keterangan";
+      final response = await http.get(Uri.parse(fetkal));
 
-    if (response.statusCode == 200) {
-      final jsonResponse = json.decode(response.body);
+      print("Response Konsumsi Keterangan");
+      print(keterangan);
+      print(response.body);
 
+      if (response.statusCode == 200) {
+        final jsonResponse = json.decode(response.body);
+
+        setState(() {
+          dataKonsumsi = jsonResponse['response'];
+          isLoadingKonsumsi = false;
+          showMaterialModalBottomSheet(
+              context: context,
+              backgroundColor: Colors.transparent,
+              builder: (context) => mDetailKalori());
+        });
+      } else {
+        throw Exception('Failed to load data');
+      }
+    } catch (e) {
+      print('Error fetching konsumsi: $e');
       setState(() {
-        dataKonsumsi = jsonResponse['response'];
-        showMaterialModalBottomSheet(
-            context: context,
-            backgroundColor: Colors.transparent,
-            builder: (context) => mDetailKalori());
+        isLoadingKonsumsi = false;
       });
-    } else {
-      throw Exception('Failed to load data');
     }
   }
 
@@ -159,70 +208,82 @@ class _KaloriState extends State<Kalori> {
   Future<void> fetchGrafikKonsumsi(String keterangan) async {
     totalKaloriKonsumsi = 0;
     if (Id.isEmpty) {
-      // Pastikan Id tidak kosong sebelum membuat permintaan http
       return;
     }
 
-    print(Id);
-    String fetkal = base_url +
-        "api/Makanan/kalorikonsumsi?id_user=$Id&waktu=$formattedDate&keterangan=$keterangan";
-    final response = await http.get(
-      Uri.parse(fetkal),
-    );
+    setState(() {
+      isLoadingGrafik = true;
+    });
 
-    print("Response Konsumsi Grafik");
-    print(keterangan);
-    print(response.body);
+    try {
+      print(Id);
+      String fetkal = base_url +
+          "api/Makanan/kalorikonsumsi?id_user=$Id&waktu=$formattedDate&keterangan=$keterangan";
+      final response = await http.get(Uri.parse(fetkal));
 
-    double totalKarbohidrat = 0;
-    double totalLemak = 0;
-    double totalProtein = 0;
-    double totalZatBesi = 0;
-    double totalVitaminA = 0;
-    double totalVitaminC = 0;
-    if (response.statusCode == 200) {
-      final jsonResponse = json.decode(response.body);
+      print("Response Konsumsi Grafik");
+      print(keterangan);
+      print(response.body);
 
-      dataKonsumsi = jsonResponse['response'];
-      setState(() {
-        dataKonsumsi.forEach((item) {
-          totalKarbohidrat += double.parse(item['karbohidrat']);
-          totalLemak += double.parse(item['lemak']);
-          totalProtein += double.parse(item['protein']);
-          totalZatBesi += double.parse(item['besi']);
-          totalVitaminA += double.parse(item['vitamina']);
-          totalVitaminC += double.parse(item['vitaminc']);
-          totalKaloriKonsumsi += double.parse(item['kalori']);
+      double totalKarbohidrat = 0;
+      double totalLemak = 0;
+      double totalProtein = 0;
+      double totalZatBesi = 0;
+      double totalVitaminA = 0;
+      double totalVitaminC = 0;
+
+      if (response.statusCode == 200) {
+        final jsonResponse = json.decode(response.body);
+        dataKonsumsi = jsonResponse['response'];
+
+        setState(() {
+          dataKonsumsi.forEach((item) {
+            totalKarbohidrat += double.parse(item['karbohidrat']);
+            totalLemak += double.parse(item['lemak']);
+            totalProtein += double.parse(item['protein']);
+            totalZatBesi += double.parse(item['besi']);
+            totalVitaminA += double.parse(item['vitamina']);
+            totalVitaminC += double.parse(item['vitaminc']);
+            totalKaloriKonsumsi += double.parse(item['kalori']);
+          });
+
+          // Pembulatan 2 angka dibelakang koma
+          totalKarbohidrat = double.parse(totalKarbohidrat.toStringAsFixed(2));
+          totalLemak = double.parse(totalLemak.toStringAsFixed(2));
+          totalProtein = double.parse(totalProtein.toStringAsFixed(2));
+          totalZatBesi = double.parse(totalZatBesi.toStringAsFixed(2));
+          totalVitaminA = double.parse(totalVitaminA.toStringAsFixed(2));
+          totalVitaminC = double.parse(totalVitaminC.toStringAsFixed(2));
+
+          totalKebutuhanKonsumsi =
+              int.parse(jsonResponse['datauser']['konsumsi_kalori'].toString());
+          persentaseKecukupanKalori = int.parse(
+              jsonResponse['datauser']['persentase_kalori'].toString());
+          keteranganKalori = jsonResponse['datauser']['keterangan'];
+
+          dataMap = {
+            "Total Karbohidrat : $totalKarbohidrat": totalKarbohidrat,
+            "Total Lemak : $totalLemak": totalLemak,
+            "Total Protein : $totalProtein": totalProtein,
+            "Total Zat Besi : $totalZatBesi": totalZatBesi,
+            "Total Vitamin A : $totalVitaminA": totalVitaminA,
+            "Total Vitamin C : $totalVitaminC": totalVitaminC,
+          };
+
+          isLoadingGrafik = false;
+          showMaterialModalBottomSheet(
+              context: context,
+              backgroundColor: Colors.transparent,
+              builder: (context) => mGrafikKalori());
         });
-        //pembulatan 2 angka dibelakang koma
-        totalKarbohidrat = double.parse(totalKarbohidrat.toStringAsFixed(2));
-        totalLemak = double.parse(totalLemak.toStringAsFixed(2));
-        totalProtein = double.parse(totalProtein.toStringAsFixed(2));
-        totalZatBesi = double.parse(totalZatBesi.toStringAsFixed(2));
-        totalVitaminA = double.parse(totalVitaminA.toStringAsFixed(2));
-        totalVitaminC = double.parse(totalVitaminC.toStringAsFixed(2));
-        totalKebutuhanKonsumsi =
-            int.parse(jsonResponse['datauser']['konsumsi_kalori'].toString());
-        persentaseKecukupanKalori =
-            int.parse(jsonResponse['datauser']['persentase_kalori'].toString());
-        keteranganKalori = jsonResponse['datauser']['keterangan'];
-
-        dataMap = {
-          "Total Karbohidrat : $totalKarbohidrat": totalKarbohidrat,
-          "Total Lemak : $totalLemak": totalLemak,
-          "Total Protein : $totalProtein": totalProtein,
-          "Total Zat Besi : $totalZatBesi": totalZatBesi,
-          "Total Vitamin A : $totalVitaminA": totalVitaminA,
-          "Total Vitamin C : $totalVitaminC": totalVitaminC,
-        };
-
-        showMaterialModalBottomSheet(
-            context: context,
-            backgroundColor: Colors.transparent,
-            builder: (context) => mGrafikKalori());
+      } else {
+        throw Exception('Failed to load data');
+      }
+    } catch (e) {
+      print('Error fetching grafik: $e');
+      setState(() {
+        isLoadingGrafik = false;
       });
-    } else {
-      throw Exception('Failed to load data');
     }
   }
 
@@ -315,23 +376,42 @@ class _KaloriState extends State<Kalori> {
                               )
                             ]),
                           ),
-                          const SizedBox(
-                            height: 30,
-                          ),
+                          const SizedBox(height: 30),
+
+                          // Budget Kalori Section
                           Container(
-                            padding: const EdgeInsets.only(left: 15, right: 15),
+                            margin: const EdgeInsets.symmetric(horizontal: 15),
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(15),
+                              boxShadow: [boxShadow],
+                            ),
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Container(
-                                  child: Text(
-                                    'Budget Kalori Harian\n' +
-                                        KebutuhanKalori +
-                                        ' Kkal',
-                                    style: TextStyle(
-                                        color: Colors.black,
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.bold),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Budget Kalori Harian',
+                                        style: TextStyle(
+                                          color: Colors.black87,
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        '$KebutuhanKalori Kkal',
+                                        style: TextStyle(
+                                          color: Colors.grey[600],
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
                                 Container(
@@ -339,113 +419,500 @@ class _KaloriState extends State<Kalori> {
                                   height: 50,
                                   width: 100,
                                   decoration: BoxDecoration(
-                                      color: SecondaryColor,
-                                      borderRadius: BorderRadius.circular(10)),
+                                    color: SecondaryColor,
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
                                   child: isLoading
-                                      ? CircularProgressIndicator()
+                                      ? SizedBox(
+                                          width: 20,
+                                          height: 20,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            valueColor:
+                                                AlwaysStoppedAnimation<Color>(
+                                                    Colors.white),
+                                          ),
+                                        )
                                       : Text(
                                           "${totalEnergi.toInt()} Kkal",
                                           style: const TextStyle(
-                                              color: Colors.black,
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.bold),
+                                            color: Colors.black,
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.bold,
+                                          ),
                                           textAlign: TextAlign.center,
                                         ),
                                 ),
                               ],
                             ),
                           ),
-                          const SizedBox(
-                            height: 20,
-                          ),
-                          Container(
-                            height: 350,
-                            child: ListView(
-                              children: articles2.map((article2) {
-                                final String imageUrl2 = article2['gambar'];
-                                String keterangan = article2['nama'];
-                                String judul2 = article2['nama'];
-                                double jmlKalori = 0;
-                                // string lowercase
-                                data.forEach((item) {
-                                  if (item['keterangan'].toLowerCase() ==
-                                      judul2.toLowerCase()) {
-                                    jmlKalori += double.parse(item['kalori']);
-                                  }
-                                });
-                                if (jmlKalori > 0) {
-                                  judul2 += "\n(" +
-                                      jmlKalori.toStringAsFixed(2) +
-                                      ")";
-                                }
+                          const SizedBox(height: 20),
 
-                                return Container(
-                                  margin: const EdgeInsets.only(bottom: 8),
-                                  decoration: BoxDecoration(
-                                      color: Colors.white,
-                                      borderRadius: BorderRadius.circular(15.0),
-                                      boxShadow: [boxShadow]),
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(8.0),
-                                    child: Row(
+                          // AKG Comparison Widget
+                          if (showAkgComparison) ...[
+                            // Two-box layout: Calorie Status and User Data
+                            Row(
+                              children: [
+                                // Calorie Status Box
+                                Expanded(
+                                  child: Container(
+                                    margin: const EdgeInsets.only(
+                                        left: 15, right: 7.5),
+                                    padding: const EdgeInsets.all(16),
+                                    decoration: BoxDecoration(
+                                      gradient: LinearGradient(
+                                        colors: [
+                                          Color.fromARGB(255, 250, 154, 0),
+                                          Color.fromARGB(255, 246, 80, 20),
+                                        ],
+                                      ),
+                                      borderRadius: BorderRadius.circular(15),
+                                      boxShadow: [boxShadow],
+                                    ),
+                                    child: Column(
                                       children: [
-                                        Expanded(
-                                            child: Image.network(
-                                          imageUrl2,
-                                          width:
-                                              100, // Sesuaikan dengan ukuran gambar yang Anda inginkan
-                                          height:
-                                              50, // Sesuaikan dengan ukuran gambar yang Anda inginkan
-                                        )),
-                                        Expanded(
-                                            child: Text(
-                                          judul2,
+                                        const Text(
+                                          'Status Kalori',
                                           style: TextStyle(
                                             fontSize: 16,
                                             fontWeight: FontWeight.bold,
+                                            color: Colors.white,
                                           ),
-                                        )),
-                                        jmlKalori > 0
-                                            ? Expanded(
-                                                child: Row(children: [
-                                                IconButton(
-                                                  icon: Icon(Icons.info,
-                                                      color: SecondaryColor),
-                                                  onPressed: () {
-                                                    fetchDataKonsumsi(
-                                                        keterangan);
-                                                  },
+                                        ),
+                                        const SizedBox(height: 12),
+                                        Container(
+                                          width: 80,
+                                          height: 80,
+                                          decoration: BoxDecoration(
+                                            color: Colors.white,
+                                            shape: BoxShape.circle,
+                                            boxShadow: [
+                                              BoxShadow(
+                                                color: Colors.black26,
+                                                blurRadius: 6,
+                                                offset: Offset(0, 3),
+                                              ),
+                                            ],
+                                          ),
+                                          child: Center(
+                                            child: Column(
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment.center,
+                                              children: [
+                                                Text(
+                                                  '${akgData['kalori_persen']}%',
+                                                  style: TextStyle(
+                                                    fontSize: 20,
+                                                    fontWeight: FontWeight.bold,
+                                                    color: _getStatusColor(
+                                                        int.parse(akgData[
+                                                                'kalori_persen']
+                                                            .toString())),
+                                                  ),
                                                 ),
-                                                IconButton(
-                                                  icon: Icon(
-                                                      Icons.analytics_outlined,
-                                                      color: PrimaryColor),
-                                                  onPressed: () {
-                                                    fetchGrafikKonsumsi(
-                                                        keterangan);
-                                                  },
-                                                )
-                                              ]))
-                                            : Expanded(
-                                                child: IconButton(
-                                                icon: Icon(Icons.add,
-                                                    color: PrimaryColor),
-                                                onPressed: () {
-                                                  Navigator.push(
-                                                      context,
-                                                      MaterialPageRoute(
-                                                        builder: (context) =>
-                                                            TambahKalori(
-                                                                keterangan:
-                                                                    judul2),
-                                                      ));
-                                                },
-                                              )),
+                                                Text(
+                                                  _getStatusText(int.parse(
+                                                      akgData['kalori_persen']
+                                                          .toString())),
+                                                  style: TextStyle(
+                                                    fontSize: 10,
+                                                    fontWeight: FontWeight.w600,
+                                                    color: _getStatusColor(
+                                                        int.parse(akgData[
+                                                                'kalori_persen']
+                                                            .toString())),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(height: 12),
+                                        Text(
+                                          '${akgData['kalori_kons']} / ${akgData['energi']}',
+                                          style: const TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w600,
+                                            color: Colors.white,
+                                          ),
+                                        ),
+                                        Text(
+                                          'kkal',
+                                          style: const TextStyle(
+                                            fontSize: 10,
+                                            color: Colors.white70,
+                                          ),
+                                        ),
                                       ],
                                     ),
                                   ),
-                                );
-                              }).toList(),
+                                ),
+                                // User Data Box
+                                Expanded(
+                                  child: Container(
+                                    margin: const EdgeInsets.only(
+                                        left: 7.5, right: 15),
+                                    padding: const EdgeInsets.all(16),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      borderRadius: BorderRadius.circular(15),
+                                      boxShadow: [boxShadow],
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          'Data Pengguna',
+                                          style: TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.black87,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 12),
+                                        if (userData.isNotEmpty) ...[
+                                          _buildUserDataRow(
+                                              'Nama', userData['nama'] ?? '-'),
+                                          _buildUserDataRow(
+                                              'Umur', '${umur} tahun'),
+                                          _buildUserDataRow('Tinggi',
+                                              '${userData['tinggi_badan'] ?? '-'} cm'),
+                                          _buildUserDataRow('Berat',
+                                              '${userData['berat_badan'] ?? '-'} kg'),
+                                          _buildUserDataRow('Jenis Kelamin',
+                                              userData['jekel'] ?? '-'),
+                                          _buildUserDataRow(
+                                              'IMT',
+                                              userData['nilai_imt'] ??
+                                                  'Belum dihitung'),
+                                        ] else ...[
+                                          Text(
+                                            'Data pengguna tidak tersedia',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: Colors.grey,
+                                            ),
+                                          ),
+                                        ],
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            // Special Calorie Display
+                            const SizedBox(height: 16),
+                            // Other Nutrients
+                            Container(
+                              margin:
+                                  const EdgeInsets.symmetric(horizontal: 15),
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(15),
+                                boxShadow: [boxShadow],
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'Status Nutrisi Lainnya',
+                                    style: TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.black87,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  _buildNutritionBarWithStatus(
+                                    'Karbohidrat',
+                                    '${akgData['karbohidrat_kons']} / ${akgData['karbohidrat']} g',
+                                    int.parse(akgData['karbohidrat_persen']
+                                        .toString()),
+                                    Colors.blue,
+                                  ),
+                                  _buildNutritionBarWithStatus(
+                                    'Protein',
+                                    '${akgData['protein_kons']} / ${akgData['protein']} g',
+                                    int.parse(
+                                        akgData['protein_persen'].toString()),
+                                    Colors.green,
+                                  ),
+                                  _buildNutritionBarWithStatus(
+                                    'Lemak',
+                                    '${akgData['lemak_kons']} / ${akgData['lemak']} g',
+                                    int.parse(
+                                        akgData['lemak_persen'].toString()),
+                                    Colors.red,
+                                  ),
+                                  _buildNutritionBarWithStatus(
+                                    'Zat Besi',
+                                    '${akgData['besi_kons']} / ${akgData['besi']} mg',
+                                    int.parse(
+                                        akgData['besi_persen'].toString()),
+                                    Colors.brown,
+                                  ),
+                                  _buildNutritionBarWithStatus(
+                                    'Vitamin A',
+                                    '${akgData['vitamina_kons']} / ${akgData['vitamina']} mcg',
+                                    int.parse(
+                                        akgData['vitamina_persen'].toString()),
+                                    Colors.purple,
+                                  ),
+                                  _buildNutritionBarWithStatus(
+                                    'Vitamin C',
+                                    '${akgData['vitaminc_kons']} / ${akgData['vitaminc']} mg',
+                                    int.parse(
+                                        akgData['vitaminc_persen'].toString()),
+                                    Colors.cyan,
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 20),
+                          ],
+                          // Meal Schedule Section
+                          Container(
+                            margin: const EdgeInsets.symmetric(horizontal: 15),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Jadwal Makan Hari Ini',
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.black87,
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                                Container(
+                                  height: 350,
+                                  child: isLoadingJadwal
+                                      ? Center(
+                                          child: Column(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.center,
+                                            children: [
+                                              CircularProgressIndicator(),
+                                              const SizedBox(height: 16),
+                                              Text(
+                                                'Memuat jadwal makan...',
+                                                style: TextStyle(
+                                                  color: Colors.grey[600],
+                                                  fontSize: 14,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        )
+                                      : articles2.isEmpty
+                                          ? Center(
+                                              child: Column(
+                                                mainAxisAlignment:
+                                                    MainAxisAlignment.center,
+                                                children: [
+                                                  Icon(
+                                                    Icons.restaurant_menu,
+                                                    size: 48,
+                                                    color: Colors.grey[400],
+                                                  ),
+                                                  const SizedBox(height: 16),
+                                                  Text(
+                                                    'Belum ada jadwal makan',
+                                                    style: TextStyle(
+                                                      color: Colors.grey[600],
+                                                      fontSize: 16,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            )
+                                          : ListView(
+                                              children:
+                                                  articles2.map((article2) {
+                                                final String imageUrl2 =
+                                                    article2['gambar'];
+                                                String keterangan =
+                                                    article2['nama'];
+                                                String judul2 =
+                                                    article2['nama'];
+                                                double jmlKalori = 0;
+
+                                                // Calculate total calories for this meal type
+                                                data.forEach((item) {
+                                                  if (item['keterangan']
+                                                          .toLowerCase() ==
+                                                      judul2.toLowerCase()) {
+                                                    jmlKalori += double.parse(
+                                                        item['kalori']);
+                                                  }
+                                                });
+
+                                                if (jmlKalori > 0) {
+                                                  judul2 +=
+                                                      "\n(${jmlKalori.toStringAsFixed(0)} kkal)";
+                                                }
+
+                                                return Container(
+                                                  margin: const EdgeInsets.only(
+                                                      bottom: 12),
+                                                  decoration: BoxDecoration(
+                                                    color: Colors.white,
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            15.0),
+                                                    boxShadow: [boxShadow],
+                                                  ),
+                                                  child: Padding(
+                                                    padding:
+                                                        const EdgeInsets.all(
+                                                            12.0),
+                                                    child: Row(
+                                                      children: [
+                                                        // Meal Image
+                                                        ClipRRect(
+                                                          borderRadius:
+                                                              BorderRadius
+                                                                  .circular(8),
+                                                          child: Image.network(
+                                                            imageUrl2,
+                                                            width: 60,
+                                                            height: 60,
+                                                            fit: BoxFit.cover,
+                                                            errorBuilder:
+                                                                (context, error,
+                                                                    stackTrace) {
+                                                              return Container(
+                                                                width: 60,
+                                                                height: 60,
+                                                                color: Colors
+                                                                    .grey[200],
+                                                                child: Icon(
+                                                                  Icons
+                                                                      .restaurant,
+                                                                  color: Colors
+                                                                          .grey[
+                                                                      400],
+                                                                ),
+                                                              );
+                                                            },
+                                                          ),
+                                                        ),
+                                                        const SizedBox(
+                                                            width: 12),
+                                                        // Meal Info
+                                                        Expanded(
+                                                          child: Column(
+                                                            crossAxisAlignment:
+                                                                CrossAxisAlignment
+                                                                    .start,
+                                                            children: [
+                                                              Text(
+                                                                keterangan,
+                                                                style:
+                                                                    TextStyle(
+                                                                  fontSize: 16,
+                                                                  fontWeight:
+                                                                      FontWeight
+                                                                          .bold,
+                                                                  color: Colors
+                                                                      .black87,
+                                                                ),
+                                                              ),
+                                                              if (jmlKalori >
+                                                                  0) ...[
+                                                                const SizedBox(
+                                                                    height: 4),
+                                                                Text(
+                                                                  '${jmlKalori.toStringAsFixed(0)} kkal dikonsumsi',
+                                                                  style:
+                                                                      TextStyle(
+                                                                    fontSize:
+                                                                        12,
+                                                                    color: Colors
+                                                                            .green[
+                                                                        600],
+                                                                    fontWeight:
+                                                                        FontWeight
+                                                                            .w500,
+                                                                  ),
+                                                                ),
+                                                              ],
+                                                            ],
+                                                          ),
+                                                        ),
+                                                        // Action Buttons
+                                                        jmlKalori > 0
+                                                            ? Row(
+                                                                mainAxisSize:
+                                                                    MainAxisSize
+                                                                        .min,
+                                                                children: [
+                                                                  IconButton(
+                                                                    icon: Icon(
+                                                                      Icons
+                                                                          .info_outline,
+                                                                      color:
+                                                                          SecondaryColor,
+                                                                      size: 20,
+                                                                    ),
+                                                                    onPressed:
+                                                                        isLoadingKonsumsi
+                                                                            ? null
+                                                                            : () {
+                                                                                fetchDataKonsumsi(keterangan);
+                                                                              },
+                                                                  ),
+                                                                  IconButton(
+                                                                    icon: Icon(
+                                                                      Icons
+                                                                          .analytics_outlined,
+                                                                      color:
+                                                                          PrimaryColor,
+                                                                      size: 20,
+                                                                    ),
+                                                                    onPressed:
+                                                                        isLoadingGrafik
+                                                                            ? null
+                                                                            : () {
+                                                                                fetchGrafikKonsumsi(keterangan);
+                                                                              },
+                                                                  ),
+                                                                ],
+                                                              )
+                                                            : IconButton(
+                                                                icon: Icon(
+                                                                  Icons
+                                                                      .add_circle_outline,
+                                                                  color:
+                                                                      PrimaryColor,
+                                                                  size: 24,
+                                                                ),
+                                                                onPressed: () {
+                                                                  Navigator
+                                                                      .push(
+                                                                    context,
+                                                                    MaterialPageRoute(
+                                                                      builder:
+                                                                          (context) =>
+                                                                              TambahKalori(
+                                                                        keterangan:
+                                                                            keterangan,
+                                                                      ),
+                                                                    ),
+                                                                  );
+                                                                },
+                                                              ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                );
+                                              }).toList(),
+                                            ),
+                                ),
+                              ],
                             ),
                           ),
                           Container(
@@ -542,47 +1009,109 @@ class _KaloriState extends State<Kalori> {
       height: size.height * 0.6,
       width: size.width,
       decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.only(
-              topLeft: Radius.circular(20), topRight: Radius.circular(20))),
+        color: Colors.white,
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(20),
+          topRight: Radius.circular(20),
+        ),
+      ),
       child: Column(
         children: [
-          const SizedBox(
-            height: 20,
-          ),
+          const SizedBox(height: 20),
           const Text(
             'Detail Kalori',
             style: TextStyle(
-                color: Colors.black, fontSize: 20, fontWeight: FontWeight.bold),
+              color: Colors.black,
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+            ),
           ),
+          const SizedBox(height: 16),
           Expanded(
-            child: ListView(
-              children: dataKonsumsi.map((item) {
-                return Container(
-                  padding: EdgeInsets.all(12),
-                  margin: EdgeInsets.symmetric(vertical: 4, horizontal: 8),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(8),
-                    boxShadow: [
-                      boxShadow,
-                    ],
-                  ),
-                  child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+            child: isLoadingKonsumsi
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
+                        CircularProgressIndicator(),
+                        const SizedBox(height: 16),
                         Text(
-                          item['nama_makanan'],
+                          'Memuat detail kalori...',
                           style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
+                            color: Colors.grey[600],
+                            fontSize: 14,
                           ),
                         ),
-                        Text('Energi: ${item['kalori']}'),
-                      ]),
-                );
-              }).toList(),
-            ),
+                      ],
+                    ),
+                  )
+                : dataKonsumsi.isEmpty
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.no_food,
+                              size: 48,
+                              color: Colors.grey[400],
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              'Belum ada data konsumsi',
+                              style: TextStyle(
+                                color: Colors.grey[600],
+                                fontSize: 16,
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    : ListView(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        children: dataKonsumsi.map((item) {
+                          return Container(
+                            padding: EdgeInsets.all(16),
+                            margin: EdgeInsets.only(bottom: 12),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(12),
+                              boxShadow: [boxShadow],
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  item['nama_makanan'],
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.black87,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Row(
+                                  children: [
+                                    Icon(
+                                      Icons.local_fire_department,
+                                      size: 16,
+                                      color: Colors.orange,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      '${item['kalori']} kkal',
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        color: Colors.grey[700],
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          );
+                        }).toList(),
+                      ),
           ),
         ],
       ),
@@ -592,114 +1121,382 @@ class _KaloriState extends State<Kalori> {
   Widget mGrafikKalori() {
     var size = MediaQuery.of(context).size;
     return Container(
-      height: size.height * 0.6,
+      height: size.height * 0.7,
       width: size.width,
       decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.only(
-              topLeft: Radius.circular(20), topRight: Radius.circular(20))),
+        color: Colors.white,
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(20),
+          topRight: Radius.circular(20),
+        ),
+      ),
       child: Column(
         children: [
-          SizedBox(
-            height: 16,
-          ),
+          const SizedBox(height: 16),
           Text(
             'Analisis Kalori',
             style: TextStyle(
-                color: Colors.black, fontSize: 20, fontWeight: FontWeight.bold),
+              color: Colors.black,
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+            ),
           ),
-          Container(
-            margin: EdgeInsets.symmetric(vertical: 16, horizontal: 8),
-            child: PieChart(
-              dataMap: dataMap,
-              animationDuration: Duration(milliseconds: 800),
-              chartLegendSpacing: 16,
-              legendOptions: LegendOptions(
-                showLegendsInRow: false,
-                legendPosition: LegendPosition.left,
-                showLegends: true,
-                legendTextStyle: TextStyle(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              chartValuesOptions: ChartValuesOptions(
-                showChartValueBackground: false,
-                showChartValues: true,
-                showChartValuesInPercentage: false,
-                showChartValuesOutside: false,
-                decimalPlaces: 2,
+          const SizedBox(height: 16),
+          Expanded(
+            child: isLoadingGrafik
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        CircularProgressIndicator(),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Memuat analisis kalori...',
+                          style: TextStyle(
+                            color: Colors.grey[600],
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                : SingleChildScrollView(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Column(
+                      children: [
+                        // Pie Chart
+                        if (dataMap.isNotEmpty)
+                          Container(
+                            margin: EdgeInsets.symmetric(vertical: 16),
+                            child: PieChart(
+                              dataMap: dataMap,
+                              animationDuration: Duration(milliseconds: 800),
+                              chartLegendSpacing: 16,
+                              legendOptions: LegendOptions(
+                                showLegendsInRow: false,
+                                legendPosition: LegendPosition.left,
+                                showLegends: true,
+                                legendTextStyle: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12,
+                                ),
+                              ),
+                              chartValuesOptions: ChartValuesOptions(
+                                showChartValueBackground: false,
+                                showChartValues: true,
+                                showChartValuesInPercentage: false,
+                                showChartValuesOutside: false,
+                                decimalPlaces: 1,
+                              ),
+                            ),
+                          ),
+
+                        // Summary Statistics
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: Colors.grey[50],
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Column(
+                            children: [
+                              _buildStatRow('Total Kalori',
+                                  '${totalKaloriKonsumsi.toInt()} Kkal'),
+                              _buildStatRow('Kebutuhan Kalori',
+                                  '${totalKebutuhanKonsumsi.toInt()} Kkal'),
+                              _buildStatRow('Persentase Kecukupan',
+                                  '${persentaseKecukupanKalori.toInt()}%'),
+                            ],
+                          ),
+                        ),
+
+                        const SizedBox(height: 20),
+
+                        // Status Information
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: _getStatusColor(persentaseKecukupanKalori)
+                                .withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: _getStatusColor(persentaseKecukupanKalori),
+                              width: 1,
+                            ),
+                          ),
+                          child: Column(
+                            children: [
+                              Text(
+                                'Status Kecukupan Kalori',
+                                style: TextStyle(
+                                  color: Colors.black87,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: _getStatusColor(
+                                      persentaseKecukupanKalori),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Text(
+                                  _getStatusText(persentaseKecukupanKalori),
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                keteranganKalori,
+                                style: TextStyle(
+                                  color: Colors.black87,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        const SizedBox(height: 20),
+                      ],
+                    ),
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              color: Colors.black87,
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          Text(
+            value,
+            style: TextStyle(
+              color: Colors.black87,
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildUserDataRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            flex: 2,
+            child: Text(
+              label,
+              style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+                color: Colors.grey,
               ),
             ),
           ),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Total Kalori',
-                    style: TextStyle(
-                        color: Colors.black,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500),
-                  ),
-                  Text(
-                    'Kebutuhan Kalori',
-                    style: TextStyle(
-                        color: Colors.black,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500),
-                  ),
-                  Text(
-                    'Persentase Kecukupan Kalori',
-                    style: TextStyle(
-                        color: Colors.black,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500),
-                  ),
-                ],
+          const Text(
+            ': ',
+            style: TextStyle(
+              fontSize: 11,
+              color: Colors.grey,
+            ),
+          ),
+          Expanded(
+            flex: 3,
+            child: Text(
+              value,
+              style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: Colors.black87,
               ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNutritionBarWithStatus(
+      String label, String value, int percentage, Color color) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black87,
+                ),
+              ),
+              Row(
                 children: [
-                  Text(
-                    ': ${totalKaloriKonsumsi.toInt()} Kkal',
-                    style: TextStyle(
-                        color: Colors.black,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: _getStatusColor(percentage),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      _getStatusText(percentage),
+                      style: const TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
                   ),
+                  const SizedBox(width: 8),
                   Text(
-                    ': ${totalKebutuhanKonsumsi.toInt()} Kkal',
+                    '$percentage%',
                     style: TextStyle(
-                        color: Colors.black,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500),
-                  ),
-                  Text(
-                    ': ${persentaseKecukupanKalori.toInt()}%',
-                    style: TextStyle(
-                        color: Colors.black,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: _getStatusColor(percentage),
+                    ),
                   ),
                 ],
               ),
             ],
           ),
-          SizedBox(
-            height: 24,
-          ),
+          const SizedBox(height: 4),
           Text(
-            'Keterangan Kalori',
-            style: TextStyle(
-                color: Colors.black, fontSize: 20, fontWeight: FontWeight.w600),
+            value,
+            style: const TextStyle(
+              fontSize: 12,
+              color: Colors.grey,
+            ),
           ),
+          const SizedBox(height: 6),
+          Container(
+            height: 8,
+            decoration: BoxDecoration(
+              color: Colors.grey[200],
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: FractionallySizedBox(
+              alignment: Alignment.centerLeft,
+              widthFactor: (percentage / 100).clamp(0.0, 1.0),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: _getStatusColor(percentage),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _getStatusText(int percentage) {
+    if (percentage < 70) {
+      return 'KURANG';
+    } else if (percentage >= 70 && percentage <= 110) {
+      return 'CUKUP';
+    } else {
+      return 'LEBIH';
+    }
+  }
+
+  Color _getStatusColor(int percentage) {
+    if (percentage < 70) {
+      return Colors.red;
+    } else if (percentage >= 70 && percentage <= 110) {
+      return Colors.green;
+    } else {
+      return Colors.orange;
+    }
+  }
+
+  Widget _buildNutritionBar(
+      String label, String value, int percentage, Color color) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black87,
+                ),
+              ),
+              Text(
+                '$percentage%',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  color: percentage >= 100 ? Colors.green : Colors.orange,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
           Text(
-            '$keteranganKalori',
-            style: TextStyle(
-                color: Colors.black, fontSize: 20, fontWeight: FontWeight.w600),
+            value,
+            style: const TextStyle(
+              fontSize: 12,
+              color: Colors.grey,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Container(
+            height: 8,
+            decoration: BoxDecoration(
+              color: Colors.grey[200],
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: FractionallySizedBox(
+              alignment: Alignment.centerLeft,
+              widthFactor: (percentage / 100).clamp(0.0, 1.0),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: percentage >= 100 ? Colors.green : color,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+            ),
           ),
         ],
       ),

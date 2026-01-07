@@ -135,13 +135,14 @@ class _RiwayatState extends State<Riwayat> {
   Future<void> fetchData() async {
     String start = DateFormat('yyyy-MM-dd').format(startDate);
     String end = DateFormat('yyyy-MM-dd').format(endDate);
+    String url =
+        base_url + 'API/Makanan/allKonsumsi?id_user=$Id&start=$start&end=$end';
     final Uri uri = Uri.parse(
-        base_url + 'api/Makanan/allKonsumsi?id_user=$Id&start=$start&end=$end');
+        base_url + 'API/Makanan/allKonsumsi?id_user=$Id&start=$start&end=$end');
     final response = await http.get(uri);
 
     print("response Riwayat");
-    print(
-        base_url + 'api/Makanan/allKonsumsi?id_user=$Id&start=$start&end=$end');
+    print(url);
     print(response.body);
 
     listBarGroup.clear();
