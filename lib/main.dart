@@ -1,18 +1,15 @@
-import 'package:firebase_core/firebase_core.dart';
-import 'package:isi_piringku/Auth/firebase.dart';
 import 'package:isi_piringku/BeratBadan/BeratBadan.dart';
-import 'package:isi_piringku/Login/login_screen.dart';
 import 'package:isi_piringku/bloc/nav/nav_bloc.dart';
 import 'package:isi_piringku/dashboard/dashboard.dart';
 import 'package:isi_piringku/kalori/kalori.dart';
-
 import 'package:isi_piringku/model/provider.dart';
+import 'package:isi_piringku/splash/splash_screen.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:get/get.dart';
 import 'package:isi_piringku/tambahDarah/tambahDarah.dart';
-import 'package:isi_piringku/util/colors.dart';
+import 'package:intl/date_symbol_data_local.dart';
 
 import 'package:page_transition/page_transition.dart';
 
@@ -21,7 +18,11 @@ import 'package:isi_piringku/riwayat/riwayat.dart';
 import 'package:provider/provider.dart';
 
 void main() async {
-  // WidgetsFlutterBinding.ensureInitialized();
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize locale data for Indonesian
+  await initializeDateFormatting('id_ID', null);
+
   // try {
   //   await Firebase.initializeApp();
   // } catch (e) {
@@ -64,7 +65,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return GetMaterialApp(
       debugShowCheckedModeBanner: false,
-      home: const LoginScreen(),
+      home: const SplashScreen(), // Changed from LoginScreen to SplashScreen
       onGenerateRoute: (settings) {
         switch (settings.name) {
           case '/dashboard':

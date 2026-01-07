@@ -6,8 +6,10 @@ import 'package:isi_piringku/components/constants.dart';
 import 'package:isi_piringku/dashboard/dashboard.dart';
 import 'package:isi_piringku/lupaPassword/lupaPassword.dart';
 import 'package:isi_piringku/model/user.dart';
+import 'package:isi_piringku/model/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
+import 'package:provider/provider.dart';
 import 'dart:convert';
 import '../../util/core.dart';
 
@@ -31,119 +33,124 @@ class _LoginFormState extends State<LoginForm> {
   late UserData userData;
 
   Future<void> getToken() async {
-  try {
-    var response = await http.post(
-      Uri.parse(tokenUrl),
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: {
-        'grant_type': 'client_credentials',
-        'client_id': clientId,
-        'client_secret': clientSecret,
-      },
-    );
-
-    print('Token response status: ${response.statusCode}');
-    print('Token response body: ${response.body}');
-
-    if (response.statusCode != 200) {
-      throw Exception('Status ${response.statusCode}: ${response.body}');
-    }
-
-    Map<String, dynamic> tokenData;
     try {
-      tokenData = jsonDecode(response.body);
+      var response = await http.post(
+        Uri.parse(tokenUrl),
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: {
+          'grant_type': 'client_credentials',
+          'client_id': clientId,
+          'client_secret': clientSecret,
+        },
+      );
+
+      print('Token response status: ${response.statusCode}');
+      print('Token response body: ${response.body}');
+
+      if (response.statusCode != 200) {
+        throw Exception('Status ${response.statusCode}: ${response.body}');
+      }
+
+      Map<String, dynamic> tokenData;
+      try {
+        tokenData = jsonDecode(response.body);
+      } catch (e) {
+        throw Exception('Response bukan JSON valid: ${response.body}');
+      }
+
+      if (!tokenData.containsKey('access_token')) {
+        throw Exception('Access token tidak ditemukan dalam respons');
+      }
+
+      accessToken = tokenData['access_token'] as String;
+      print('Token Akses: $accessToken');
     } catch (e) {
-      throw Exception('Response bukan JSON valid: ${response.body}');
+      print('Gagal mendapatkan token: $e');
+      Fluttertoast.showToast(
+        msg: '❌ $e',
+        backgroundColor: Colors.red,
+        textColor: Colors.white,
+        toastLength: Toast.LENGTH_LONG,
+      );
     }
-
-    if (!tokenData.containsKey('access_token')) {
-      throw Exception('Access token tidak ditemukan dalam respons');
-    }
-
-    accessToken = tokenData['access_token'] as String;
-    print('Token Akses: $accessToken');
-
-  } catch (e) {
-    print('Gagal mendapatkan token: $e');
-    Fluttertoast.showToast(
-      msg: '❌ $e',
-      backgroundColor: Colors.red,
-      textColor: Colors.white,
-      toastLength: Toast.LENGTH_LONG,
-    );
   }
-}
 
   Future<void> _login() async {
-  final String username = _usernameController.text.trim();
-  final String password = _passwordController.text.trim();
+    final String username = _usernameController.text.trim();
+    final String password = _passwordController.text.trim();
 
-  if (username.isEmpty || password.isEmpty) {
-    Fluttertoast.showToast(
-      msg: 'Username dan password wajib diisi',
-      backgroundColor: Colors.orange,
-      textColor: Colors.white,
-    );
-    return;
-  }
-
-  try {
-    final response = await http.post(
-      Uri.parse(base_url + 'API/Login/login'), // ✅ FIXED
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'Accept': 'application/json',
-      },
-      body: {
-        'username': username,
-        'password': password,
-      },
-    );
-
-    print('STATUS: ${response.statusCode}');
-    print('BODY: ${response.body}');
-
-    // 🚨 CEK DULU SEBELUM JSON DECODE
-    if (response.body.isEmpty) {
-      throw Exception('Response kosong dari server');
-    }
-
-    final responseData = jsonDecode(response.body);
-
-    if (response.statusCode == 200 && responseData['success'] == true) {
-      final prefs = await SharedPreferences.getInstance();
-
-      userData = UserData.fromJson(responseData['response']);
-      await prefs.setString('user_data', jsonEncode(userData.toJson()));
-
+    if (username.isEmpty || password.isEmpty) {
       Fluttertoast.showToast(
-        msg: '✅ Login berhasil',
-        backgroundColor: Colors.green,
+        msg: 'Username dan password wajib diisi',
+        backgroundColor: Colors.orange,
         textColor: Colors.white,
       );
+      return;
+    }
 
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => Dashboard()),
+    try {
+      final response = await http.post(
+        Uri.parse(base_url + 'API/Login/login'), // ✅ FIXED
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Accept': 'application/json',
+        },
+        body: {
+          'username': username,
+          'password': password,
+        },
       );
-    } else {
+
+      print('STATUS: ${response.statusCode}');
+      print('BODY: ${response.body}');
+
+      // 🚨 CEK DULU SEBELUM JSON DECODE
+      if (response.body.isEmpty) {
+        throw Exception('Response kosong dari server');
+      }
+
+      final responseData = jsonDecode(response.body);
+
+      if (response.statusCode == 200 && responseData['success'] == true) {
+        final prefs = await SharedPreferences.getInstance();
+
+        userData = UserData.fromJson(responseData['response']);
+        await prefs.setString('user_data', jsonEncode(userData.toJson()));
+
+        // Update UserProvider
+        if (mounted) {
+          Provider.of<UserProvider>(context, listen: false)
+              .updateUser(userData);
+        }
+
+        Fluttertoast.showToast(
+          msg: '✅ Login berhasil',
+          backgroundColor: Colors.green,
+          textColor: Colors.white,
+        );
+
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const Dashboard()),
+        );
+      } else {
+        Fluttertoast.showToast(
+          msg: responseData['message']['message'] ?? 'Login gagal',
+          backgroundColor: Colors.red,
+          textColor: Colors.white,
+        );
+      }
+    } catch (e) {
+      print('ERROR LOGIN: $e');
       Fluttertoast.showToast(
-        msg: responseData['message']['message'] ?? 'Login gagal',
+        msg: '❌ Error koneksi server',
         backgroundColor: Colors.red,
         textColor: Colors.white,
       );
     }
-  } catch (e) {
-    print('ERROR LOGIN: $e');
-    Fluttertoast.showToast(
-      msg: '❌ Error koneksi server',
-      backgroundColor: Colors.red,
-      textColor: Colors.white,
-    );
   }
-}
 
   void _handleLoginError(Map<String, dynamic> responseData) {
     String errorMsg = 'Username atau password salah';
@@ -151,12 +158,13 @@ class _LoginFormState extends State<LoginForm> {
       if (responseData.containsKey('message')) {
         if (responseData['message'] is String) {
           errorMsg = responseData['message'];
-        } else if (responseData['message'] is Map && responseData['message'].containsKey('message')) {
+        } else if (responseData['message'] is Map &&
+            responseData['message'].containsKey('message')) {
           errorMsg = responseData['message']['message'];
         }
       }
     } catch (_) {}
-    
+
     Fluttertoast.showToast(
       msg: '❌ $errorMsg',
       backgroundColor: Colors.red,
@@ -174,7 +182,6 @@ class _LoginFormState extends State<LoginForm> {
   @override
   void initState() {
     super.initState();
-    
   }
 
   @override
@@ -184,7 +191,8 @@ class _LoginFormState extends State<LoginForm> {
         children: [
           TextFormField(
             controller: _usernameController,
-            keyboardType: TextInputType.text, // bukan email, karena pakai username
+            keyboardType:
+                TextInputType.text, // bukan email, karena pakai username
             textInputAction: TextInputAction.next,
             cursorColor: kPrimaryColor,
             decoration: InputDecoration(

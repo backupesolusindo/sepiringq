@@ -9,6 +9,8 @@ import 'package:page_transition/page_transition.dart';
 import 'package:isi_piringku/Login/login_screen.dart';
 import 'package:isi_piringku/bloc/nav/bottom_nav.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:isi_piringku/model/provider.dart';
+import 'package:provider/provider.dart';
 
 import 'package:isi_piringku/model/user.dart';
 import 'package:isi_piringku/profile/editprofile.dart';
@@ -61,10 +63,15 @@ class _ProfileState extends State<Profile> {
     prefs.remove('access_token');
     prefs.remove('user_data'); // Jika ada data pengguna lain yang perlu dihapus
 
+    // Clear UserProvider
+    if (mounted) {
+      Provider.of<UserProvider>(context, listen: false).clearUser();
+    }
+
     // Arahkan pengguna kembali ke halaman login
     Navigator.of(context).pushAndRemoveUntil(
       PageTransition(
-        child: LoginScreen(),
+        child: const LoginScreen(),
         type: PageTransitionType.fade,
         duration: const Duration(milliseconds: 500),
       ),
