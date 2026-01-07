@@ -407,6 +407,7 @@ class _RiwayatState extends State<Riwayat> {
   Widget _buildDatePickerSection() {
     return Card(
       elevation: 2,
+      color: Colors.white,
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -534,6 +535,7 @@ class _RiwayatState extends State<Riwayat> {
   Widget _buildChartSection() {
     return Card(
       elevation: 2,
+      color: Colors.white,
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
