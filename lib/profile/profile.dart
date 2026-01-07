@@ -1,17 +1,11 @@
 import 'dart:convert';
-import 'dart:io';
-
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/widgets.dart';
 import 'package:isi_piringku/util/colors.dart';
 import 'package:page_transition/page_transition.dart';
 import 'package:isi_piringku/Login/login_screen.dart';
 import 'package:isi_piringku/bloc/nav/bottom_nav.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:isi_piringku/model/provider.dart';
 import 'package:provider/provider.dart';
-
 import 'package:isi_piringku/model/user.dart';
 import 'package:isi_piringku/profile/editprofile.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -24,490 +18,399 @@ class Profile extends StatefulWidget {
 }
 
 class _ProfileState extends State<Profile> {
-  String Nama = '';
-  String Email = '';
+  String nama = '';
+  String email = '';
   String tglLahir = '';
-  String BB = '';
-  String TB = '';
-  String telp = '';
+  String beratBadan = '';
+  String tinggiBadan = '';
+  String noTelp = '';
   String username = '';
+  String alamat = '';
+  String kecamatan = '';
+  String kabupaten = '';
+  String provinsi = '';
+  String jenisKelamin = '';
+  String umur = '';
 
   Future<void> loadUserData() async {
     final prefs = await SharedPreferences.getInstance();
     final userDataString = prefs.getString('user_data');
-    print("sharePref");
-    print(userDataString);
+
     if (userDataString != null) {
       final userData = UserData.fromJson(json.decode(userDataString));
-      print(userData.nama);
 
       setState(() {
-        if (userData.nama != "" && userData.nama != null) {
-          Nama = userData.nama;
-        } else {
-          Nama = userData.username;
-        }
-        Email = userData.email;
+        nama = userData.nama.isNotEmpty ? userData.nama : userData.username;
+        email = userData.email;
         tglLahir = userData.tglLahir;
-        BB = userData.beratBadan;
-        TB = userData.tinggiBadan;
-        telp = userData.noTelp;
+        beratBadan = userData.beratBadan;
+        tinggiBadan = userData.tinggiBadan;
+        noTelp = userData.noTelp;
         username = userData.username;
+        alamat = userData.alamat;
+        kecamatan = userData.kecamatan;
+        kabupaten = userData.kabupaten;
+        provinsi = userData.provinsi;
+        jenisKelamin = userData.jekel;
+        umur = userData.umur;
       });
     }
   }
 
   Future<void> logoutUser() async {
-    // Hapus token akses dari Shared Preferences
     final prefs = await SharedPreferences.getInstance();
     prefs.remove('access_token');
-    prefs.remove('user_data'); // Jika ada data pengguna lain yang perlu dihapus
+    prefs.remove('user_data');
 
-    // Clear UserProvider
     if (mounted) {
       Provider.of<UserProvider>(context, listen: false).clearUser();
-    }
 
-    // Arahkan pengguna kembali ke halaman login
-    Navigator.of(context).pushAndRemoveUntil(
-      PageTransition(
-        child: const LoginScreen(),
-        type: PageTransitionType.fade,
-        duration: const Duration(milliseconds: 500),
-      ),
-      (route) => false, // Hapus seluruh riwayat navigasi
-    );
+      Navigator.of(context).pushAndRemoveUntil(
+        PageTransition(
+          child: const LoginScreen(),
+          type: PageTransitionType.fade,
+          duration: const Duration(milliseconds: 500),
+        ),
+        (route) => false,
+      );
+    }
   }
 
   final scaffoldKey = GlobalKey<ScaffoldState>();
-  XFile? _imageFile;
-  Future<void> _getImageFromGallery() async {
-    final picker = ImagePicker();
-    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
-
-    if (pickedFile != null) {
-      setState(() {
-        _imageFile = pickedFile;
-      });
-
-      // Simpan path gambar yang dipilih
-      _saveImagePath(pickedFile.path);
-    }
-  }
-
-  Future<void> _saveImagePath(String imagePath) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('profile_image', imagePath);
-  }
-
-  Future<void> loadProfileImage() async {
-    final prefs = await SharedPreferences.getInstance();
-    final imagePath = prefs.getString('profile_image');
-
-    if (imagePath != null) {
-      setState(() {
-        _imageFile = XFile(imagePath);
-      });
-    }
-  }
 
   @override
   void initState() {
     super.initState();
     loadUserData();
-    loadProfileImage();
-  }
-
-  @override
-  void dispose() {
-    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      bottomNavigationBar: BottomNavBar(selected: 3),
+      bottomNavigationBar: const BottomNavBar(selected: 3),
       key: scaffoldKey,
-      backgroundColor: Color.fromARGB(255, 255, 172, 63),
+      backgroundColor: const Color.fromARGB(255, 255, 172, 63),
       body: SingleChildScrollView(
         child: Column(
-          mainAxisSize: MainAxisSize.max,
           children: [
+            // Header Section
             Container(
-              height: 750,
-              child: Stack(
-                children: [
-                  Container(
-                    margin: EdgeInsets.only(top: 60),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.only(
-                        topLeft: Radius.circular(30),
-                        topRight: Radius.circular(30),
+              height: 200,
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Color.fromARGB(255, 255, 172, 63),
+                    Color.fromARGB(255, 255, 193, 102),
+                  ],
+                ),
+              ),
+              child: SafeArea(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    // Profile Avatar
+                    Container(
+                      width: 100,
+                      height: 100,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.white,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.1),
+                            blurRadius: 10,
+                            offset: const Offset(0, 5),
+                          ),
+                        ],
+                      ),
+                      child: const Icon(
+                        Icons.person,
+                        size: 50,
+                        color: Color.fromARGB(255, 255, 172, 63),
                       ),
                     ),
-                    child: Column(
+                    const SizedBox(height: 15),
+                    // Username
+                    Text(
+                      username.isNotEmpty ? username : 'User',
+                      style: const TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                        fontFamily: 'Readex Pro',
+                      ),
+                    ),
+                    const SizedBox(height: 5),
+                    Text(
+                      nama.isNotEmpty ? nama : 'Nama Lengkap',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        color: Colors.white70,
+                        fontFamily: 'Readex Pro',
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            // Profile Content
+            Container(
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(30),
+                  topRight: Radius.circular(30),
+                ),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 10),
+
+                    // Personal Information Section
+                    _buildSectionTitle('Informasi Personal'),
+                    const SizedBox(height: 15),
+
+                    _buildInfoCard([
+                      _buildInfoRow(Icons.email, 'Email', email),
+                      _buildInfoRow(Icons.phone, 'No. Telepon', noTelp),
+                      _buildInfoRow(Icons.cake, 'Tanggal Lahir', tglLahir),
+                      _buildInfoRow(Icons.wc, 'Jenis Kelamin', jenisKelamin),
+                      _buildInfoRow(
+                          Icons.calendar_today, 'Umur', '$umur tahun'),
+                    ]),
+
+                    const SizedBox(height: 25),
+
+                    // Physical Information Section
+                    _buildSectionTitle('Informasi Fisik'),
+                    const SizedBox(height: 15),
+
+                    _buildInfoCard([
+                      _buildInfoRow(
+                          Icons.height, 'Tinggi Badan', '$tinggiBadan cm'),
+                      _buildInfoRow(Icons.monitor_weight, 'Berat Badan',
+                          '$beratBadan kg'),
+                    ]),
+
+                    const SizedBox(height: 25),
+
+                    // Address Information Section
+                    _buildSectionTitle('Informasi Alamat'),
+                    const SizedBox(height: 15),
+
+                    _buildInfoCard([
+                      _buildInfoRow(Icons.home, 'Alamat', alamat),
+                      _buildInfoRow(
+                          Icons.location_city, 'Kecamatan', kecamatan),
+                      _buildInfoRow(Icons.location_on, 'Kabupaten', kabupaten),
+                      _buildInfoRow(Icons.map, 'Provinsi', provinsi),
+                    ]),
+
+                    const SizedBox(height: 30),
+
+                    // Action Buttons
+                    Row(
                       children: [
-                        Container(
-                          margin: EdgeInsets.only(top: 150),
-                          alignment: Alignment.topCenter,
-                          child: Row(
-                            mainAxisSize: MainAxisSize.max,
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Container(
-                                child: Text(
-                                  username,
-                                  style: TextStyle(
-                                      fontSize: 18,
-                                      fontFamily: 'Readex Pro',
-                                      color: Colors.black),
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => const EditProfile(),
                                 ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Container(
-                          padding: EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 10),
-                          decoration: BoxDecoration(
-                            border: Border(
-                              bottom: BorderSide(
-                                color: Colors.grey,
-                                width: 1.0,
+                              );
+                            },
+                            icon: const Icon(Icons.edit, color: Colors.white),
+                            label: const Text(
+                              'Edit Profile',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
                               ),
                             ),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.max,
-                            children: [
-                              Padding(
-                                padding:
-                                    EdgeInsetsDirectional.fromSTEB(10, 0, 0, 0),
-                                child: Text(
-                                  'Data Diri',
-                                  style: TextStyle(
-                                      fontSize: 18,
-                                      fontFamily: 'Readex Pro',
-                                      fontWeight: FontWeight.w600),
-                                ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: SecondaryColor,
+                              padding: const EdgeInsets.symmetric(vertical: 15),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
                               ),
-                            ],
-                          ),
-                        ),
-                        Container(
-                          padding:
-                              EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.max,
-                            children: [
-                              Text(
-                                'Nama',
-                                style: TextStyle(
-                                    fontSize: 12, fontFamily: 'Readex Pro'),
-                              ),
-                              Padding(
-                                padding:
-                                    EdgeInsetsDirectional.fromSTEB(49, 0, 0, 0),
-                                child: Text(
-                                  ':',
-                                  style: TextStyle(fontSize: 14),
-                                ),
-                              ),
-                              Padding(
-                                padding:
-                                    EdgeInsetsDirectional.fromSTEB(10, 0, 0, 0),
-                                child: Text(
-                                  Nama,
-                                  style: TextStyle(
-                                      fontFamily: 'Readex Pro', fontSize: 12),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Container(
-                          padding:
-                              EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.max,
-                            children: [
-                              Text(
-                                'Email',
-                                style: TextStyle(
-                                    fontFamily: 'Readex Pro', fontSize: 12),
-                              ),
-                              Padding(
-                                padding:
-                                    EdgeInsetsDirectional.fromSTEB(52, 0, 0, 0),
-                                child: Text(
-                                  ':',
-                                  style: TextStyle(fontSize: 14),
-                                ),
-                              ),
-                              Padding(
-                                padding:
-                                    EdgeInsetsDirectional.fromSTEB(10, 0, 0, 0),
-                                child: Text(
-                                  Email,
-                                  style: TextStyle(
-                                    fontFamily: 'Readex Pro',
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Container(
-                          padding:
-                              EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.max,
-                            children: [
-                              Text(
-                                'Tanggal Lahir',
-                                style: TextStyle(
-                                  fontFamily: 'Readex Pro',
-                                  fontSize: 12,
-                                ),
-                              ),
-                              Padding(
-                                padding:
-                                    EdgeInsetsDirectional.fromSTEB(7, 0, 0, 0),
-                                child: Text(
-                                  ':',
-                                  style: TextStyle(fontSize: 14),
-                                ),
-                              ),
-                              Padding(
-                                padding:
-                                    EdgeInsetsDirectional.fromSTEB(8, 0, 0, 0),
-                                child: Text(
-                                  tglLahir,
-                                  style: TextStyle(
-                                    fontFamily: 'Readex Pro',
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Container(
-                          padding:
-                              EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.max,
-                            children: [
-                              Text(
-                                'Berat Badan',
-                                style: TextStyle(
-                                  fontFamily: 'Readex Pro',
-                                  fontSize: 12,
-                                ),
-                              ),
-                              Padding(
-                                padding:
-                                    EdgeInsetsDirectional.fromSTEB(15, 0, 0, 0),
-                                child: Text(
-                                  ':',
-                                  style: TextStyle(fontSize: 14),
-                                ),
-                              ),
-                              Padding(
-                                padding:
-                                    EdgeInsetsDirectional.fromSTEB(8, 0, 0, 0),
-                                child: Text(
-                                  BB,
-                                  style: TextStyle(
-                                    fontFamily: 'Readex Pro',
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Container(
-                          padding:
-                              EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.max,
-                            children: [
-                              Text(
-                                'Tinggi Badan',
-                                style: TextStyle(
-                                  fontFamily: 'Readex Pro',
-                                  fontSize: 12,
-                                ),
-                              ),
-                              Padding(
-                                padding:
-                                    EdgeInsetsDirectional.fromSTEB(10, 0, 0, 0),
-                                child: Text(
-                                  ':',
-                                  style: TextStyle(fontSize: 14),
-                                ),
-                              ),
-                              Padding(
-                                padding:
-                                    EdgeInsetsDirectional.fromSTEB(6, 0, 0, 0),
-                                child: Text(
-                                  TB,
-                                  style: TextStyle(
-                                    fontFamily: 'Readex Pro',
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Container(
-                          padding:
-                              EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.max,
-                            children: [
-                              Text(
-                                'No HP',
-                                style: TextStyle(
-                                  fontFamily: 'Readex Pro',
-                                  fontSize: 12,
-                                ),
-                              ),
-                              Padding(
-                                padding:
-                                    EdgeInsetsDirectional.fromSTEB(47, 0, 0, 0),
-                                child: Text(
-                                  ':',
-                                  style: TextStyle(
-                                    fontFamily: 'Readex Pro',
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              ),
-                              Padding(
-                                padding:
-                                    EdgeInsetsDirectional.fromSTEB(5, 0, 0, 0),
-                                child: Text(
-                                  telp,
-                                  style: TextStyle(
-                                    fontFamily: 'Readex Pro',
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Align(
-                          alignment: AlignmentDirectional(0.00, -1.00),
-                          child: Container(
-                            margin: EdgeInsets.only(top: 20),
-                            child: ElevatedButton(
-                              onPressed: () {
-                                Navigator.pushReplacement(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) => EditProfile(),
-                                    ));
-                              },
-                              style: ElevatedButton.styleFrom(
-                                fixedSize: Size(200, 45),
-                                backgroundColor:
-                                    SecondaryColor, // Atur warna latar belakang tombol
-                                // Atur warna teks tombol
-                                padding:
-                                    EdgeInsets.all(16), // Atur padding tombol
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(
-                                      8), // Atur sudut tombol
-                                ),
-                                elevation: 3,
-                                textStyle: TextStyle(
-                                  fontSize: 12, // Atur ukuran teks tombol
-                                  fontWeight: FontWeight
-                                      .bold, // Atur ketebalan teks tombol
-                                  fontFamily: 'Readex Pro',
-                                ),
-                              ),
-                              child: Text(
-                                  'Edit Profile'), // Teks yang akan ditampilkan pada tombol
+                              elevation: 3,
                             ),
                           ),
                         ),
-                        Align(
-                          alignment: AlignmentDirectional(0.00, -1.00),
-                          child: Container(
-                            margin: EdgeInsets.only(top: 20),
-                            child: ElevatedButton(
-                              onPressed: () {
-                                logoutUser();
-                              },
-                              style: ElevatedButton.styleFrom(
-                                fixedSize: Size(200, 45),
-                                backgroundColor:
-                                    AccentColor, // Atur warna latar belakang tombol
-                                // Atur warna teks tombol
-                                padding:
-                                    EdgeInsets.all(16), // Atur padding tombol
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(
-                                      8), // Atur sudut tombol
-                                ),
-                                elevation: 3,
-                                textStyle: TextStyle(
-                                  fontSize: 12, // Atur ukuran teks tombol
-                                  fontWeight: FontWeight
-                                      .bold, // Atur ketebalan teks tombol
-                                ),
+                        const SizedBox(width: 15),
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: () {
+                              _showLogoutDialog();
+                            },
+                            icon: const Icon(Icons.logout, color: Colors.white),
+                            label: const Text(
+                              'Logout',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
                               ),
-                              child: Text(
-                                'Logout',
-                                style: TextStyle(color: Colors.white),
-                              ), // Teks yang akan ditampilkan pada tombol
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AccentColor,
+                              padding: const EdgeInsets.symmetric(vertical: 15),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              elevation: 3,
                             ),
                           ),
                         ),
                       ],
                     ),
-                  ),
-                  Container(
-                    alignment: Alignment.topCenter,
-                    margin: EdgeInsets.only(top: 80),
-                    child: GestureDetector(
-                      onTap: () {
-                        print("Tapped on circle image");
-                        _getImageFromGallery();
-                      },
-                      child: Container(
-                        width: 120,
-                        height: 120,
-                        clipBehavior: Clip.antiAlias,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                        ),
-                        child: _imageFile != null
-                            ? Image.file(
-                                File(_imageFile!.path),
-                                fit: BoxFit.cover,
-                              )
-                            : Icon(
-                                Icons.camera_alt,
-                                size: 40.0,
-                                color: PrimaryColor,
-                              ),
-                      ),
-                    ),
-                  ),
-                ],
+
+                    const SizedBox(height: 20),
+                  ],
+                ),
               ),
             ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildSectionTitle(String title) {
+    return Text(
+      title,
+      style: const TextStyle(
+        fontSize: 18,
+        fontWeight: FontWeight.bold,
+        color: Colors.black87,
+        fontFamily: 'Readex Pro',
+      ),
+    );
+  }
+
+  Widget _buildInfoCard(List<Widget> children) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.grey[50],
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(color: Colors.grey[200]!),
+      ),
+      child: Column(
+        children: children,
+      ),
+    );
+  }
+
+  Widget _buildInfoRow(IconData icon, String label, String value) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(
+            color: Colors.grey[200]!,
+            width: 0.5,
+          ),
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            icon,
+            size: 20,
+            color: const Color.fromARGB(255, 255, 172, 63),
+          ),
+          const SizedBox(width: 15),
+          Expanded(
+            flex: 2,
+            child: Text(
+              label,
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                color: Colors.black87,
+                fontFamily: 'Readex Pro',
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            flex: 3,
+            child: Text(
+              value.isNotEmpty ? value : '-',
+              style: const TextStyle(
+                fontSize: 14,
+                color: Colors.black54,
+                fontFamily: 'Readex Pro',
+              ),
+              textAlign: TextAlign.right,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showLogoutDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(15),
+          ),
+          title: const Text(
+            'Konfirmasi Logout',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontFamily: 'Readex Pro',
+            ),
+          ),
+          content: const Text(
+            'Apakah Anda yakin ingin keluar dari aplikasi?',
+            style: TextStyle(fontFamily: 'Readex Pro'),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: const Text(
+                'Batal',
+                style: TextStyle(
+                  color: Colors.grey,
+                  fontFamily: 'Readex Pro',
+                ),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                logoutUser();
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AccentColor,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              child: const Text(
+                'Logout',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontFamily: 'Readex Pro',
+                ),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }

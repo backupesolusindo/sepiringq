@@ -1,8 +1,6 @@
 import 'dart:convert';
-import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:isi_piringku/bloc/nav/bottom_nav.dart';
 import 'package:isi_piringku/model/user.dart';
@@ -18,50 +16,84 @@ class EditProfile extends StatefulWidget {
 }
 
 class _EditProfileState extends State<EditProfile> {
-  String selectedGender = 'Laki-Laki'; // Default jenis kelamin
-  DateTime selectedDate = DateTime.now(); // Default tanggal lahir
+  final _formKey = GlobalKey<FormState>();
+  String selectedGender = 'Laki-Laki';
+  DateTime selectedDate = DateTime.now();
 
   String? _validateNotEmpty(String? value) {
     if (value == null || value.isEmpty) {
-      return 'Harus diisi';
+      return 'Field ini harus diisi';
     }
-    return null; // Data valid
+    return null;
   }
 
-  XFile? _imageFile;
-  Future<void> _getImageFromGallery() async {
-    final picker = ImagePicker();
-    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
-
-    if (pickedFile != null) {
-      setState(() {
-        _imageFile = pickedFile;
-      });
-
-      // Simpan path gambar yang dipilih
-      _saveImagePath(pickedFile.path);
+  String? _validateEmail(String? value) {
+    if (value == null || value.isEmpty) {
+      return 'Email harus diisi';
     }
+    if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
+      return 'Format email tidak valid';
+    }
+    return null;
   }
 
-  Future<void> _saveImagePath(String imagePath) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('profile_image', imagePath);
+  String? _validatePhone(String? value) {
+    if (value == null || value.isEmpty) {
+      return 'Nomor telepon harus diisi';
+    }
+    if (!RegExp(r'^[0-9]+$').hasMatch(value)) {
+      return 'Nomor telepon hanya boleh berisi angka';
+    }
+    if (value.length < 10) {
+      return 'Nomor telepon minimal 10 digit';
+    }
+    return null;
   }
 
-  Future<void> loadProfileImage() async {
-    final prefs = await SharedPreferences.getInstance();
-    final imagePath = prefs.getString('profile_image');
+  String? _validateNumber(String? value, String fieldName) {
+    if (value == null || value.isEmpty) {
+      return '$fieldName harus diisi';
+    }
+    if (!RegExp(r'^[0-9]+$').hasMatch(value)) {
+      return '$fieldName hanya boleh berisi angka';
+    }
+    return null;
+  }
 
-    if (imagePath != null) {
-      setState(() {
-        _imageFile = XFile(imagePath);
-      });
+  int _calculateAge(DateTime birthDate) {
+    DateTime today = DateTime.now();
+    int age = today.year - birthDate.year;
+
+    // Jika belum ulang tahun di tahun ini, kurangi 1
+    if (today.month < birthDate.month ||
+        (today.month == birthDate.month && today.day < birthDate.day)) {
+      age--;
+    }
+
+    return age;
+  }
+
+  void _updateAgeFromBirthDate() {
+    if (tanggalLahirController.text.isNotEmpty) {
+      try {
+        DateTime birthDate =
+            DateFormat('yyyy-MM-dd').parse(tanggalLahirController.text);
+        int calculatedAge = _calculateAge(birthDate);
+        setState(() {
+          umurController.text = calculatedAge.toString();
+        });
+      } catch (e) {
+        // Jika parsing gagal, biarkan umur kosong
+        setState(() {
+          umurController.text = '';
+        });
+      }
     }
   }
 
   final scaffoldKey = GlobalKey<ScaffoldState>();
-  String Id = '';
-  String Nama = '';
+  String id = '';
+  String nama = '';
 
   Future<void> loadUserData() async {
     final prefs = await SharedPreferences.getInstance();
@@ -69,18 +101,44 @@ class _EditProfileState extends State<EditProfile> {
 
     if (userDataString != null) {
       final userData = UserData.fromJson(json.decode(userDataString));
-      print(userData.nama);
 
       setState(() {
-        Id = userData.idUser.toString();
-        Nama = userData.nama;
+        id = userData.idUser.toString();
+        nama = userData.nama;
+
+        // Mengisi semua field dengan data yang ada
+        usernameController.text = userData.username;
+        namaController.text = userData.nama;
+        tanggalLahirController.text = userData.tglLahir;
+        tinggiBadanController.text = userData.tinggiBadan;
+        beratBadanController.text = userData.beratBadan;
+        alamatController.text = userData.alamat;
+        kecamatanController.text = userData.kecamatan;
+        kabupatenController.text = userData.kabupaten;
+        provinsiController.text = userData.provinsi;
+        jenisKelaminController.text = userData.jekel;
+        noTelpController.text = userData.noTelp;
+        emailController.text = userData.email;
+        // umurController.text akan diisi otomatis dari tanggal lahir
+
+        // Set dropdown dan date picker
+        selectedGender =
+            userData.jekel.isNotEmpty ? userData.jekel : 'Laki-Laki';
+        if (userData.tglLahir.isNotEmpty) {
+          try {
+            selectedDate = DateFormat('yyyy-MM-dd').parse(userData.tglLahir);
+            // Hitung umur otomatis dari tanggal lahir
+            _updateAgeFromBirthDate();
+          } catch (e) {
+            selectedDate = DateTime.now();
+          }
+        }
       });
     }
   }
 
   TextEditingController idUserController = TextEditingController();
   TextEditingController usernameController = TextEditingController();
-  TextEditingController jabatanController = TextEditingController();
   TextEditingController namaController = TextEditingController();
   TextEditingController tanggalLahirController = TextEditingController();
   TextEditingController tinggiBadanController = TextEditingController();
@@ -94,45 +152,18 @@ class _EditProfileState extends State<EditProfile> {
   TextEditingController emailController = TextEditingController();
   TextEditingController umurController = TextEditingController();
 
-  String clientId = "PKL2023";
-  String clientSecret = "PKLSERU";
-  String tokenUrl = base_url + "api/Token/token";
-  String accessToken = "";
-
-  Future<void> getToken() async {
-    try {
-      var response = await http.post(
-        Uri.parse(tokenUrl),
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: {
-          'grant_type': 'client_credentials',
-          'client_id': clientId,
-          'client_secret': clientSecret,
-        },
-      );
-
-      if (response.statusCode == 200) {
-        Map<String, dynamic> tokenData = jsonDecode(response.body);
-        accessToken = tokenData['access_token'];
-        print('Token Akses: $accessToken');
-      } else {
-        print('Gagal mendapatkan token: ${response.statusCode}');
-      }
-    } catch (e) {
-      print('Gagal mendapatkan token: $e');
+  void updateUser() async {
+    if (!_formKey.currentState!.validate()) {
+      return;
     }
-  }
 
-  void registerUser() async {
-    final apiUrl = base_url + 'api/UpdateProfil/UpdateProfil';
+    const apiUrl = '${base_url}api/UpdateProfil/UpdateProfil';
 
     final Map<String, dynamic> data = {
-      'id_user': Id,
+      'id_user': id,
       'username': usernameController.text,
-      'jabatan': jabatanController.text,
-      'nama': Nama,
+      'jabatan': '',
+      'nama': namaController.text,
       'tgl_lahir': tanggalLahirController.text,
       'tinggi_badan': tinggiBadanController.text,
       'berat_badan': beratBadanController.text,
@@ -140,7 +171,7 @@ class _EditProfileState extends State<EditProfile> {
       'kecamatan': kecamatanController.text,
       'kabupaten': kabupatenController.text,
       'provinsi': provinsiController.text,
-      'jekel': jenisKelaminController.text,
+      'jekel': selectedGender,
       'no_telp': noTelpController.text,
       'email': emailController.text,
       'umur': umurController.text,
@@ -152,286 +183,429 @@ class _EditProfileState extends State<EditProfile> {
         body: json.encode(data),
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': 'Bearer $accessToken', // Menggunakan token OAuth2
         },
       );
 
       if (response.statusCode == 200) {
-        // Registrasi berhasil, lakukan sesuatu di sini
-        print('Registrasi berhasil');
-        print(response.body);
+        // Update berhasil
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Profil berhasil diperbarui'),
+            backgroundColor: Colors.green,
+          ),
+        );
+
+        // Update data di SharedPreferences
+        final updatedUserData = UserData(
+          idUser: int.parse(id),
+          username: usernameController.text,
+          jabatan: '',
+          nama: namaController.text,
+          tglLahir: tanggalLahirController.text,
+          tinggiBadan: tinggiBadanController.text,
+          beratBadan: beratBadanController.text,
+          alamat: alamatController.text,
+          kecamatan: kecamatanController.text,
+          kabupaten: kabupatenController.text,
+          provinsi: provinsiController.text,
+          jekel: selectedGender,
+          noTelp: noTelpController.text,
+          tglDaftar: '',
+          email: emailController.text,
+          umur: umurController.text,
+        );
+
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString(
+            'user_data', json.encode(updatedUserData.toJson()));
       } else {
-        // Registrasi gagal, tampilkan pesan kesalahan atau lakukan sesuatu yang sesuai
-        print('Registrasi gagal. Status code: ${response.statusCode}');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+                'Gagal memperbarui profil. Status: ${response.statusCode}'),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
     } catch (error) {
-      // Terjadi kesalahan dalam proses registrasi
-      print('Terjadi kesalahan: $error');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Terjadi kesalahan: $error'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 
   @override
   void initState() {
     super.initState();
-    getToken();
     loadUserData();
-    loadProfileImage();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      bottomNavigationBar: BottomNavBar(selected: 3),
+      backgroundColor: Colors.grey[50],
+      appBar: AppBar(
+        title: const Text(
+          'Edit Profile',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
+        backgroundColor: const Color.fromARGB(255, 255, 172, 63),
+        elevation: 0,
+        iconTheme: const IconThemeData(color: Colors.white),
+      ),
+      bottomNavigationBar: const BottomNavBar(selected: 3),
       body: SingleChildScrollView(
-        child: Stack(
-          children: [
-            Container(
-              height: 130,
-              width: double.infinity,
-              decoration: const BoxDecoration(color: Colors.amber),
-            ),
-            SafeArea(
-              child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: 15.0),
-                child: Container(
-                  width: MediaQuery.of(context).size.width,
-                  child: Stack(
-                    children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Padding(padding: EdgeInsets.only(top: 64)),
-                          SizedBox(height: 20),
-                          Center(
-                            child: Container(
-                              width: MediaQuery.of(context).size.height * 0.4,
-                              height: 30,
-                              decoration: BoxDecoration(
-                                color: const Color.fromARGB(255, 98, 182, 250),
-                                borderRadius: BorderRadius.circular(30),
-                                boxShadow: kElevationToShadow[1],
-                              ),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 5,
-                                vertical: 0,
-                              ),
-                              child: Center(
-                                child: Text(
-                                  'EditProfile',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                            ),
+        padding: const EdgeInsets.all(20),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Profile Header
+              Center(
+                child: Column(
+                  children: [
+                    Container(
+                      width: 100,
+                      height: 100,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.white,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.1),
+                            blurRadius: 10,
+                            offset: const Offset(0, 5),
                           ),
-                          SizedBox(height: 10),
-                          Container(
-                            alignment: Alignment.topCenter,
-                            child: GestureDetector(
-                              onTap: () {
-                                print("Tapped on circle image");
-                                _getImageFromGallery();
-                              },
-                              child: Container(
-                                width: 120,
-                                height: 120,
-                                clipBehavior: Clip.antiAlias,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                ),
-                                child: _imageFile != null
-                                    ? Image.file(
-                                        File(_imageFile!.path),
-                                        fit: BoxFit.cover,
-                                      )
-                                    : Icon(
-                                        Icons.camera_alt,
-                                        size: 40.0,
-                                        color: Colors.orange,
-                                      ),
-                              ),
-                            ),
-                          ),
-                          TextFormField(
-                            controller: usernameController,
-                            decoration: InputDecoration(hintText: 'username'),
-                          ),
-                          SizedBox(height: 10),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: TextFormField(
-                                  controller: emailController,
-                                  decoration:
-                                      InputDecoration(hintText: 'Email'),
-                                ),
-                              ),
-                              SizedBox(width: 10),
-                              Expanded(
-                                child: TextFormField(
-                                  controller: noTelpController,
-                                  decoration:
-                                      InputDecoration(hintText: 'no telepon'),
-                                ),
-                              ),
-                            ],
-                          ),
-                          SizedBox(
-                            height: 10,
-                          ),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: TextFormField(
-                                  controller: tinggiBadanController,
-                                  decoration:
-                                      InputDecoration(hintText: 'Tinggi (cm)'),
-                                ),
-                              ),
-                              SizedBox(width: 10),
-                              Expanded(
-                                child: TextFormField(
-                                  controller: beratBadanController,
-                                  decoration:
-                                      InputDecoration(hintText: 'Berat (kg)'),
-                                ),
-                              ),
-                            ],
-                          ),
-                          SizedBox(height: 10),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: DropdownButtonFormField<String>(
-                                  decoration: InputDecoration(
-                                      hintText: 'Jenis Kelamin'),
-                                  value: selectedGender,
-                                  onChanged: (value) {
-                                    // Tambahkan kode untuk menangani perubahan jenis kelamin
-                                    setState(() {
-                                      selectedGender = value!;
-                                    });
-                                  },
-                                  items: ['Laki-Laki', 'Perempuan']
-                                      .map((String value) {
-                                    return DropdownMenuItem<String>(
-                                      value: value,
-                                      child: Text(value),
-                                    );
-                                  }).toList(),
-                                ),
-                              ),
-                              SizedBox(width: 10),
-                              Expanded(
-                                child: TextFormField(
-                                  controller: tanggalLahirController,
-                                  onTap: () async {
-                                    // Tambahkan kode untuk menampilkan date picker
-                                    final DateTime? pickedDate =
-                                        await showDatePicker(
-                                      context: context,
-                                      initialDate: selectedDate,
-                                      firstDate: DateTime(1900),
-                                      lastDate: DateTime.now(),
-                                    );
-                                    if (pickedDate != null &&
-                                        pickedDate != selectedDate) {
-                                      setState(() {
-                                        selectedDate = pickedDate;
-                                        tanggalLahirController.text =
-                                            DateFormat('yyyy-MM-dd')
-                                                .format(selectedDate);
-                                      });
-                                    }
-                                  },
-                                  decoration: InputDecoration(
-                                      hintText: 'Tanggal Lahir'),
-                                ),
-                              ),
-                            ],
-                          ),
-                          SizedBox(height: 10),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: TextFormField(
-                                  controller: jabatanController,
-                                  decoration:
-                                      InputDecoration(hintText: 'Jabatan'),
-                                ),
-                              ),
-                              SizedBox(width: 10),
-                              Expanded(
-                                child: TextFormField(
-                                  controller: umurController,
-                                  decoration: InputDecoration(hintText: 'Umur'),
-                                ),
-                              ),
-                            ],
-                          ),
-                          SizedBox(height: 10),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: TextFormField(
-                                  controller: alamatController,
-                                  decoration:
-                                      InputDecoration(hintText: 'alamat'),
-                                ),
-                              ),
-                              SizedBox(width: 10),
-                              Expanded(
-                                child: TextFormField(
-                                  controller: kecamatanController,
-                                  decoration:
-                                      InputDecoration(hintText: 'kecamatan'),
-                                ),
-                              ),
-                            ],
-                          ),
-                          SizedBox(height: 10),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: TextFormField(
-                                  controller: kabupatenController,
-                                  decoration:
-                                      InputDecoration(hintText: 'Kabupaten'),
-                                ),
-                              ),
-                              SizedBox(width: 10),
-                              Expanded(
-                                child: TextFormField(
-                                  controller: provinsiController,
-                                  decoration:
-                                      InputDecoration(hintText: 'Provinsi'),
-                                ),
-                              ),
-                            ],
-                          ),
-                          SizedBox(
-                            height: 5,
-                          ),
-                          Center(
-                              child: Container(
-                            child: ElevatedButton(
-                              onPressed: () {
-                                registerUser();
-                              },
-                              child: Text('Simpan'),
-                            ),
-                          ))
                         ],
                       ),
-                    ],
+                      child: const Icon(
+                        Icons.person,
+                        size: 50,
+                        color: Color.fromARGB(255, 255, 172, 63),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    const Text(
+                      'Edit Profile Anda',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 30),
+
+              // Personal Information Section
+              _buildSectionTitle('Informasi Personal'),
+              const SizedBox(height: 15),
+
+              _buildFormCard([
+                TextFormField(
+                  controller: namaController,
+                  decoration: _buildInputDecoration(
+                    'Nama Lengkap',
+                    Icons.person,
+                  ),
+                  validator: _validateNotEmpty,
+                ),
+                const SizedBox(height: 15),
+                TextFormField(
+                  controller: usernameController,
+                  decoration: _buildInputDecoration(
+                    'Username',
+                    Icons.account_circle,
+                  ),
+                  validator: _validateNotEmpty,
+                ),
+                const SizedBox(height: 15),
+                TextFormField(
+                  controller: emailController,
+                  decoration: _buildInputDecoration(
+                    'Email',
+                    Icons.email,
+                  ),
+                  validator: _validateEmail,
+                ),
+                const SizedBox(height: 15),
+                TextFormField(
+                  controller: noTelpController,
+                  decoration: _buildInputDecoration(
+                    'No Telepon',
+                    Icons.phone,
+                  ),
+                  validator: _validatePhone,
+                ),
+              ]),
+
+              const SizedBox(height: 25),
+
+              // Physical & Personal Details Section
+              _buildSectionTitle('Detail Personal'),
+              const SizedBox(height: 15),
+
+              _buildFormCard([
+                Row(
+                  children: [
+                    Expanded(
+                      child: DropdownButtonFormField<String>(
+                        decoration: _buildInputDecoration(
+                          'Jenis Kelamin',
+                          Icons.wc,
+                        ),
+                        value: selectedGender,
+                        onChanged: (value) {
+                          setState(() {
+                            selectedGender = value!;
+                          });
+                        },
+                        validator: _validateNotEmpty,
+                        items: ['Laki-Laki', 'Perempuan'].map((String value) {
+                          return DropdownMenuItem<String>(
+                            value: value,
+                            child: Text(value),
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                    const SizedBox(width: 15),
+                    Expanded(
+                      child: TextFormField(
+                        controller: umurController,
+                        readOnly: true,
+                        decoration: _buildInputDecoration(
+                          'Umur (Otomatis)',
+                          Icons.calendar_today,
+                        ).copyWith(
+                          suffixText: 'tahun',
+                          fillColor: Colors.grey[100],
+                        ),
+                        validator: (value) => _validateNumber(value, 'Umur'),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 15),
+                TextFormField(
+                  controller: tanggalLahirController,
+                  readOnly: true,
+                  onTap: () async {
+                    final DateTime? pickedDate = await showDatePicker(
+                      context: context,
+                      initialDate: selectedDate,
+                      firstDate: DateTime(1900),
+                      lastDate: DateTime.now(),
+                    );
+                    if (pickedDate != null && pickedDate != selectedDate) {
+                      setState(() {
+                        selectedDate = pickedDate;
+                        tanggalLahirController.text =
+                            DateFormat('yyyy-MM-dd').format(selectedDate);
+                        // Hitung umur otomatis setelah tanggal lahir dipilih
+                        _updateAgeFromBirthDate();
+                      });
+                    }
+                  },
+                  decoration: _buildInputDecoration(
+                    'Tanggal Lahir',
+                    Icons.cake,
+                  ),
+                  validator: _validateNotEmpty,
+                ),
+                const SizedBox(height: 15),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextFormField(
+                        controller: tinggiBadanController,
+                        decoration: _buildInputDecoration(
+                          'Tinggi Badan (cm)',
+                          Icons.height,
+                        ),
+                        validator: (value) =>
+                            _validateNumber(value, 'Tinggi badan'),
+                      ),
+                    ),
+                    const SizedBox(width: 15),
+                    Expanded(
+                      child: TextFormField(
+                        controller: beratBadanController,
+                        decoration: _buildInputDecoration(
+                          'Berat Badan (kg)',
+                          Icons.monitor_weight,
+                        ),
+                        validator: (value) =>
+                            _validateNumber(value, 'Berat badan'),
+                      ),
+                    ),
+                  ],
+                ),
+              ]),
+
+              const SizedBox(height: 25),
+
+              // Address Information Section
+              _buildSectionTitle('Informasi Alamat'),
+              const SizedBox(height: 15),
+
+              _buildFormCard([
+                TextFormField(
+                  controller: alamatController,
+                  decoration: _buildInputDecoration(
+                    'Alamat Lengkap',
+                    Icons.home,
+                  ),
+                  validator: _validateNotEmpty,
+                  maxLines: 2,
+                ),
+                const SizedBox(height: 15),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextFormField(
+                        controller: kecamatanController,
+                        decoration: _buildInputDecoration(
+                          'Kecamatan',
+                          Icons.location_city,
+                        ),
+                        validator: _validateNotEmpty,
+                      ),
+                    ),
+                    const SizedBox(width: 15),
+                    Expanded(
+                      child: TextFormField(
+                        controller: kabupatenController,
+                        decoration: _buildInputDecoration(
+                          'Kabupaten',
+                          Icons.location_on,
+                        ),
+                        validator: _validateNotEmpty,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 15),
+                TextFormField(
+                  controller: provinsiController,
+                  decoration: _buildInputDecoration(
+                    'Provinsi',
+                    Icons.map,
+                  ),
+                  validator: _validateNotEmpty,
+                ),
+              ]),
+
+              const SizedBox(height: 40),
+
+              // Save Button
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: updateUser,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color.fromARGB(255, 255, 172, 63),
+                    padding: const EdgeInsets.symmetric(vertical: 18),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    elevation: 3,
+                  ),
+                  child: const Text(
+                    'Simpan Perubahan',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
                   ),
                 ),
               ),
-            ),
-          ],
+
+              const SizedBox(height: 20),
+            ],
+          ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildSectionTitle(String title) {
+    return Text(
+      title,
+      style: const TextStyle(
+        fontSize: 18,
+        fontWeight: FontWeight.bold,
+        color: Colors.black87,
+        fontFamily: 'Readex Pro',
+      ),
+    );
+  }
+
+  Widget _buildFormCard(List<Widget> children) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(15),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        children: children,
+      ),
+    );
+  }
+
+  InputDecoration _buildInputDecoration(String label, IconData icon) {
+    return InputDecoration(
+      labelText: label,
+      prefixIcon: Icon(
+        icon,
+        color: const Color.fromARGB(255, 255, 172, 63),
+      ),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: Colors.grey[300]!),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: Colors.grey[300]!),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(
+          color: Color.fromARGB(255, 255, 172, 63),
+          width: 2,
+        ),
+      ),
+      errorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: Colors.red),
+      ),
+      focusedErrorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: Colors.red, width: 2),
+      ),
+      filled: true,
+      fillColor: Colors.grey[50],
+      contentPadding: const EdgeInsets.symmetric(
+        horizontal: 16,
+        vertical: 16,
       ),
     );
   }
