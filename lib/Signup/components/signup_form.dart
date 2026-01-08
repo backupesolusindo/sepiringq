@@ -419,4 +419,3 @@ void registerUser() async {
     );
   }
 }
-
