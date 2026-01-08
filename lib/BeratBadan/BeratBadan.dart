@@ -1,5 +1,7 @@
-import 'dart:convert';
+//lib/BeratBadan/BeratBadan.dart
 
+import 'dart:convert';
+import 'dart:math';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -149,16 +151,31 @@ class _BeratBadanState extends State<BeratBadan> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        flexibleSpace: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                AccentColor,
+                AccentColor.withValues(alpha: 0.8),
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
+        elevation: 2,
         title: const Text(
           'BERAT BADAN',
           style: TextStyle(
-            color: TextColordark,
-            fontSize: 32,
+            color: TextColorLight,
+            fontSize: 28,
             fontWeight: FontWeight.bold,
           ),
         ),
+        iconTheme: const IconThemeData(color: TextColorLight),
       ),
       bottomNavigationBar: const BottomNavBar(selected: 5),
+      backgroundColor: BackgroundColor,
       body: Container(
           margin: const EdgeInsets.only(left: 16, right: 16),
           child: Column(
@@ -235,10 +252,10 @@ class _BeratBadanState extends State<BeratBadan> {
                           margin: const EdgeInsets.only(top: 16),
                           padding: const EdgeInsets.only(top: 8),
                           decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(8),
+                            color: BackgroundColorWhite,
+                            borderRadius: BorderRadius.circular(16),
                             boxShadow: const [
-                              boxShadow,
+                              boxShadowWhite,
                             ],
                           ),
                           child: Column(
@@ -255,13 +272,21 @@ class _BeratBadanState extends State<BeratBadan> {
                                           MainAxisAlignment.spaceEvenly,
                                       children: [
                                         Text(
-                                            "Start Date: ${DateFormat('yyyy-MM-dd').format(startDate)}"),
+                                            "Start: ${DateFormat('dd-MM-yy').format(startDate)}",
+                                            style: const TextStyle(fontSize: 12)),
                                         ElevatedButton(
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: AccentColor,
+                                            foregroundColor: TextColorLight,
+                                            padding: const EdgeInsets.symmetric(
+                                                horizontal: 12, vertical: 8),
+                                            elevation: 2,
+                                          ),
                                           onPressed: () =>
                                               _selectStartDate(context),
-                                          child: const Text("Select Start Date",
+                                          child: const Text("Pilih Tanggal",
                                               style: TextStyle(
-                                                  color: PrimaryColor)),
+                                                  fontSize: 11)),
                                         ),
                                       ],
                                     ),
@@ -270,13 +295,21 @@ class _BeratBadanState extends State<BeratBadan> {
                                           MainAxisAlignment.spaceEvenly,
                                       children: [
                                         Text(
-                                            "End Date: ${DateFormat('dd-MM-yyyy').format(endDate)}"),
+                                            "End: ${DateFormat('dd-MM-yy').format(endDate)}",
+                                            style: const TextStyle(fontSize: 12)),
                                         ElevatedButton(
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: AccentColor,
+                                            foregroundColor: TextColorLight,
+                                            padding: const EdgeInsets.symmetric(
+                                                horizontal: 12, vertical: 8),
+                                            elevation: 2,
+                                          ),
                                           onPressed: () =>
                                               _selectEndDate(context),
-                                          child: const Text("Select End Date",
+                                          child: const Text("Pilih Tanggal",
                                               style: TextStyle(
-                                                  color: PrimaryColor)),
+                                                  fontSize: 11)),
                                         ),
                                       ],
                                     ),
@@ -298,7 +331,7 @@ class _BeratBadanState extends State<BeratBadan> {
                                         Row(
                                           children: [
                                             Container(
-                                              width: 16,
+                                              width: 20,
                                               height: 3,
                                               decoration: BoxDecoration(
                                                 gradient: LinearGradient(
@@ -307,16 +340,16 @@ class _BeratBadanState extends State<BeratBadan> {
                                                     BorderRadius.circular(2),
                                               ),
                                             ),
-                                            const SizedBox(width: 4),
-                                            const Text("Berat Badan (kg)",
-                                                style: TextStyle(fontSize: 12)),
+                                            const SizedBox(width: 6),
+                                            const Text("BB (kg)",
+                                                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500)),
                                           ],
                                         ),
                                       if (tinggiBadan > 0 && showIMT)
                                         Row(
                                           children: [
                                             Container(
-                                              width: 16,
+                                              width: 20,
                                               height: 3,
                                               decoration: BoxDecoration(
                                                 gradient: LinearGradient(
@@ -325,9 +358,9 @@ class _BeratBadanState extends State<BeratBadan> {
                                                     BorderRadius.circular(2),
                                               ),
                                             ),
-                                            const SizedBox(width: 4),
+                                            const SizedBox(width: 6),
                                             const Text("IMT",
-                                                style: TextStyle(fontSize: 12)),
+                                                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500)),
                                           ],
                                         ),
                                     ],
@@ -335,10 +368,10 @@ class _BeratBadanState extends State<BeratBadan> {
                                 ),
 
                               AspectRatio(
-                                aspectRatio: 1.5,
+                                aspectRatio: 1.4,
                                 child: Padding(
                                   padding: const EdgeInsets.only(
-                                      left: 0, right: 24, top: 16, bottom: 8),
+                                      left: 8, right: 24, top: 16, bottom: 8),
                                   child: (showBeratBadan ||
                                           (tinggiBadan > 0 && showIMT))
                                       ? LineChart(mainData())
@@ -416,10 +449,10 @@ class _BeratBadanState extends State<BeratBadan> {
                         child: Container(
                           height: 110,
                           decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(8),
+                            color: BackgroundColorWhite,
+                            borderRadius: BorderRadius.circular(16),
                             boxShadow: const [
-                              boxShadow,
+                              boxShadowWhite,
                             ],
                           ),
                           child: Stack(
@@ -427,7 +460,7 @@ class _BeratBadanState extends State<BeratBadan> {
                             children: <Widget>[
                               ClipRRect(
                                 borderRadius: const BorderRadius.all(
-                                    Radius.circular(8.0)),
+                                    Radius.circular(16.0)),
                                 child: SizedBox(
                                   height: 90,
                                   child: AspectRatio(
@@ -508,18 +541,67 @@ class _BeratBadanState extends State<BeratBadan> {
   Widget bottomTitleWidgets(double value, TitleMeta meta) {
     const style = TextStyle(
       fontWeight: FontWeight.w600,
-      fontSize: 11,
+      fontSize: 9,
+      color: Colors.black87,
     );
-    String label = (labelData.isNotEmpty) ? labelData[value.toInt()] : "";
-    Widget text;
-    text = Text(
-      label,
-      style: style,
+    
+    // Validasi index
+    if (value.toInt() < 0 || value.toInt() >= labelData.length) {
+      return const SizedBox.shrink();
+    }
+    
+    // Untuk data banyak, tampilkan label secara selektif
+    if (labelData.length > 10 && value.toInt() % 2 != 0) {
+      return const SizedBox.shrink();
+    }
+    
+    String label = labelData[value.toInt()];
+    
+    // Rotasi label jika terlalu banyak data
+    Widget text = Transform.rotate(
+      angle: labelData.length > 10 ? -0.5 : 0,
+      child: Text(
+        label,
+        style: style,
+        textAlign: TextAlign.center,
+      ),
     );
 
     return SideTitleWidget(
       axisSide: meta.axisSide,
+      space: 4,
       child: text,
+    );
+  }
+
+  Widget leftTitleWidgets(double value, TitleMeta meta) {
+    const style = TextStyle(
+      fontWeight: FontWeight.w600,
+      fontSize: 10,
+      color: Colors.black87,
+    );
+    
+    return Padding(
+      padding: const EdgeInsets.only(right: 4),
+      child: Text(
+        value.toInt().toString(),
+        style: style,
+        textAlign: TextAlign.right,
+      ),
+    );
+  }
+
+  Widget rightTitleWidgets(double value, TitleMeta meta) {
+    const style = TextStyle(
+      fontWeight: FontWeight.w500,
+      fontSize: 10,
+      color: Colors.orange,
+    );
+    
+    return Text(
+      value.toInt().toString(),
+      style: style,
+      textAlign: TextAlign.right,
     );
   }
 
@@ -550,6 +632,32 @@ class _BeratBadanState extends State<BeratBadan> {
   LineChartData mainData() {
     List<LineChartBarData> lineBarsData = [];
 
+    // Hitung min dan max untuk BB
+    double minBB = showBeratBadan && arBeratBadan.isNotEmpty 
+        ? arBeratBadan.map((e) => e.y).reduce((a, b) => a < b ? a : b) 
+        : 0;
+    double maxBB = showBeratBadan && arBeratBadan.isNotEmpty 
+        ? arBeratBadan.map((e) => e.y).reduce((a, b) => a > b ? a : b) 
+        : 100;
+
+    // Hitung min dan max untuk IMT
+    double minIMT = tinggiBadan > 0 && showIMT && arIMT.isNotEmpty 
+        ? arIMT.map((e) => e.y).reduce((a, b) => a < b ? a : b) 
+        : 0;
+    double maxIMT = tinggiBadan > 0 && showIMT && arIMT.isNotEmpty 
+        ? arIMT.map((e) => e.y).reduce((a, b) => a > b ? a : b) 
+        : 50;
+
+    // Normalisasi data IMT ke skala BB untuk visualisasi yang lebih baik
+    List<FlSpot> normalizedIMT = [];
+    if (tinggiBadan > 0 && showIMT && arIMT.isNotEmpty) {
+      for (var spot in arIMT) {
+        // Konversi IMT (0-50) ke skala BB
+        double normalizedValue = ((spot.y - minIMT) / (maxIMT - minIMT)) * (maxBB - minBB) + minBB;
+        normalizedIMT.add(FlSpot(spot.x, normalizedValue));
+      }
+    }
+
     // Tambahkan grafik Berat Badan jika diaktifkan
     if (showBeratBadan) {
       lineBarsData.add(
@@ -561,8 +669,16 @@ class _BeratBadanState extends State<BeratBadan> {
           ),
           barWidth: 3,
           isStrokeCapRound: true,
-          dotData: const FlDotData(
+          dotData: FlDotData(
             show: true,
+            getDotPainter: (spot, percent, barData, index) {
+              return FlDotCirclePainter(
+                radius: 4,
+                color: PrimaryColor,
+                strokeWidth: 2,
+                strokeColor: Colors.white,
+              );
+            },
           ),
           belowBarData: BarAreaData(
             show: true,
@@ -576,19 +692,27 @@ class _BeratBadanState extends State<BeratBadan> {
       );
     }
 
-    // Tambahkan grafik IMT jika tersedia dan diaktifkan
-    if (tinggiBadan > 0 && showIMT && arIMT.isNotEmpty) {
+    // Tambahkan grafik IMT jika tersedia dan diaktifkan (gunakan data yang dinormalisasi)
+    if (tinggiBadan > 0 && showIMT && normalizedIMT.isNotEmpty) {
       lineBarsData.add(
         LineChartBarData(
-          spots: arIMT,
+          spots: normalizedIMT,
           isCurved: true,
           gradient: LinearGradient(
             colors: imtGradientColors,
           ),
           barWidth: 3,
           isStrokeCapRound: true,
-          dotData: const FlDotData(
+          dotData: FlDotData(
             show: true,
+            getDotPainter: (spot, percent, barData, index) {
+              return FlDotCirclePainter(
+                radius: 4,
+                color: Colors.orange,
+                strokeWidth: 2,
+                strokeColor: Colors.white,
+              );
+            },
           ),
           belowBarData: BarAreaData(
             show: false,
@@ -597,29 +721,77 @@ class _BeratBadanState extends State<BeratBadan> {
       );
     }
 
+    // Tentukan padding untuk Y axis
+    double yPadding = (maxBB - minBB) * 0.15;
+    double adjustedMinY = (minBB - yPadding).clamp(0, double.infinity);
+    double adjustedMaxY = maxBB + yPadding;
+    
+    // Hitung interval yang baik untuk Y axis
+    double yRange = adjustedMaxY - adjustedMinY;
+    double yInterval = _calculateNiceInterval(yRange / 5);
+
     return LineChartData(
       gridData: FlGridData(
         show: true,
         drawVerticalLine: true,
-        horizontalInterval: 1,
-        verticalInterval: 1,
+        horizontalInterval: yInterval,
+        verticalInterval: labelData.length <= 10 ? 1 : 2,
         getDrawingHorizontalLine: (value) {
-          return const FlLine(
-            color: AppColors.mainGridLineColor,
+          return FlLine(
+            color: Colors.grey.withValues(alpha: 0.2),
             strokeWidth: 1,
           );
         },
         getDrawingVerticalLine: (value) {
-          return const FlLine(
-            color: AppColors.mainGridLineColor,
+          return FlLine(
+            color: Colors.grey.withValues(alpha: 0.1),
             strokeWidth: 1,
           );
         },
       ),
       titlesData: FlTitlesData(
         show: true,
-        rightTitles: const AxisTitles(
-          sideTitles: SideTitles(showTitles: false),
+        rightTitles: AxisTitles(
+          sideTitles: SideTitles(
+            showTitles: tinggiBadan > 0 && showIMT && arIMT.isNotEmpty,
+            reservedSize: 45,
+            interval: _calculateNiceInterval((maxIMT - minIMT) / 5),
+            getTitlesWidget: (value, meta) {
+              // Konversi nilai normalized kembali ke IMT untuk label
+              double imtValue = ((value - minBB) / (maxBB - minBB)) * (maxIMT - minIMT) + minIMT;
+              
+              // Hanya tampilkan label yang dalam range
+              if (imtValue < minIMT - 1 || imtValue > maxIMT + 1) {
+                return const SizedBox.shrink();
+              }
+              
+              return Padding(
+                padding: const EdgeInsets.only(left: 4),
+                child: Text(
+                  imtValue.toStringAsFixed(0),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 10,
+                    color: Colors.orange,
+                  ),
+                  textAlign: TextAlign.left,
+                ),
+              );
+            },
+          ),
+          axisNameWidget: tinggiBadan > 0 && showIMT && arIMT.isNotEmpty
+              ? const Padding(
+                  padding: EdgeInsets.only(left: 4, bottom: 4),
+                  child: Text(
+                    'IMT',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.orange,
+                    ),
+                  ),
+                )
+              : null,
         ),
         topTitles: const AxisTitles(
           sideTitles: SideTitles(showTitles: false),
@@ -627,124 +799,99 @@ class _BeratBadanState extends State<BeratBadan> {
         bottomTitles: AxisTitles(
           sideTitles: SideTitles(
             showTitles: true,
-            reservedSize: 30,
-            interval: 1,
+            reservedSize: 32,
+            interval: labelData.length <= 10 ? 1 : 2,
             getTitlesWidget: bottomTitleWidgets,
           ),
         ),
         leftTitles: AxisTitles(
           sideTitles: SideTitles(
             showTitles: true,
-            reservedSize: 42,
-            interval: showIMT && arIMT.isNotEmpty ? 5 : 10,
+            reservedSize: 45,
+            interval: yInterval,
+            getTitlesWidget: leftTitleWidgets,
           ),
+          axisNameWidget: showBeratBadan
+              ? const Padding(
+                  padding: EdgeInsets.only(right: 4, bottom: 4),
+                  child: Text(
+                    'BB (kg)',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: PrimaryColor,
+                    ),
+                  ),
+                )
+              : null,
         ),
       ),
       borderData: FlBorderData(
         show: true,
-        border: Border.all(color: const Color(0xff37434d)),
+        border: Border.all(
+          color: Colors.grey.withValues(alpha: 0.3),
+          width: 1,
+        ),
       ),
       minX: 0,
-      minY: 0,
-      maxY: showIMT && arIMT.isNotEmpty ? 150 : 150,
+      maxX: (labelData.length - 1).toDouble(),
+      minY: adjustedMinY,
+      maxY: adjustedMaxY,
       lineBarsData: lineBarsData,
+      lineTouchData: LineTouchData(
+        enabled: true,
+        touchTooltipData: LineTouchTooltipData(
+          tooltipBgColor: Colors.blueGrey.withValues(alpha: 0.8),
+          tooltipRoundedRadius: 8,
+          tooltipPadding: const EdgeInsets.all(8),
+          getTooltipItems: (touchedSpots) {
+            return touchedSpots.map((spot) {
+              String label = '';
+              Color color = Colors.white;
+              
+              if (spot.barIndex == 0 && showBeratBadan) {
+                // BB tooltip
+                label = 'BB: ${spot.y.toStringAsFixed(1)} kg';
+                color = Colors.white;
+              } else if (showIMT && arIMT.isNotEmpty) {
+                // IMT tooltip - konversi nilai normalized kembali ke IMT asli
+                double imtValue = ((spot.y - minBB) / (maxBB - minBB)) * (maxIMT - minIMT) + minIMT;
+                label = 'IMT: ${imtValue.toStringAsFixed(1)}';
+                color = Colors.white;
+              }
+              
+              return LineTooltipItem(
+                label,
+                TextStyle(
+                  color: color,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                ),
+              );
+            }).toList();
+          },
+        ),
+      ),
     );
   }
 
-  // LineChartData avgData() {
-  //   return LineChartData(
-  //     lineTouchData: const LineTouchData(enabled: false),
-  //     gridData: FlGridData(
-  //       show: true,
-  //       drawHorizontalLine: true,
-  //       verticalInterval: 1,
-  //       horizontalInterval: 1,
-  //       getDrawingVerticalLine: (value) {
-  //         return const FlLine(
-  //           color: Color(0xff37434d),
-  //           strokeWidth: 1,
-  //         );
-  //       },
-  //       getDrawingHorizontalLine: (value) {
-  //         return const FlLine(
-  //           color: Color(0xff37434d),
-  //           strokeWidth: 1,
-  //         );
-  //       },
-  //     ),
-  //     titlesData: FlTitlesData(
-  //       show: true,
-  //       bottomTitles: AxisTitles(
-  //         sideTitles: SideTitles(
-  //           showTitles: true,
-  //           reservedSize: 30,
-  //           getTitlesWidget: bottomTitleWidgets,
-  //           interval: 1,
-  //         ),
-  //       ),
-  //       leftTitles: AxisTitles(
-  //         sideTitles: SideTitles(
-  //           showTitles: true,
-  //           getTitlesWidget: leftTitleWidgets,
-  //           reservedSize: 42,
-  //           interval: 1,
-  //         ),
-  //       ),
-  //       topTitles: const AxisTitles(
-  //         sideTitles: SideTitles(showTitles: false),
-  //       ),
-  //       rightTitles: const AxisTitles(
-  //         sideTitles: SideTitles(showTitles: false),
-  //       ),
-  //     ),
-  //     borderData: FlBorderData(
-  //       show: true,
-  //       border: Border.all(color: const Color(0xff37434d)),
-  //     ),
-  //     minX: 0,
-  //     maxX: 11,
-  //     minY: 0,
-  //     maxY: 6,
-  //     lineBarsData: [
-  //       LineChartBarData(
-  //         spots: const [
-  //           FlSpot(0, 3.44),
-  //           FlSpot(2.6, 3.44),
-  //           FlSpot(4.9, 3.44),
-  //           FlSpot(6.8, 3.44),
-  //           FlSpot(8, 3.44),
-  //           FlSpot(9.5, 3.44),
-  //           FlSpot(11, 3.44),
-  //         ],
-  //         isCurved: true,
-  //         gradient: LinearGradient(
-  //           colors: [
-  //             ColorTween(begin: gradientColors[0], end: gradientColors[1])
-  //                 .lerp(0.2)!,
-  //             ColorTween(begin: gradientColors[0], end: gradientColors[1])
-  //                 .lerp(0.2)!,
-  //           ],
-  //         ),
-  //         barWidth: 5,
-  //         isStrokeCapRound: true,
-  //         dotData: const FlDotData(
-  //           show: false,
-  //         ),
-  //         belowBarData: BarAreaData(
-  //           show: true,
-  //           gradient: LinearGradient(
-  //             colors: [
-  //               ColorTween(begin: gradientColors[0], end: gradientColors[1])
-  //                   .lerp(0.2)!
-  //                   .withOpacity(0.1),
-  //               ColorTween(begin: gradientColors[0], end: gradientColors[1])
-  //                   .lerp(0.2)!
-  //                   .withOpacity(0.1),
-  //             ],
-  //           ),
-  //         ),
-  //       ),
-  //     ],
-  //   );
-  // }
+  // Helper function untuk menghitung interval yang bagus
+  double _calculateNiceInterval(double rawInterval) {
+    // Bulatkan ke nilai yang "nice" (1, 2, 5, 10, 20, 50, dll)
+    double magnitude = pow(10, (log(rawInterval) / ln10).floor()).toDouble();
+    double normalized = rawInterval / magnitude;
+    
+    double niceInterval;
+    if (normalized < 1.5) {
+      niceInterval = 1 * magnitude;
+    } else if (normalized < 3) {
+      niceInterval = 2 * magnitude;
+    } else if (normalized < 7) {
+      niceInterval = 5 * magnitude;
+    } else {
+      niceInterval = 10 * magnitude;
+    }
+    
+    return niceInterval;
+  }
 }

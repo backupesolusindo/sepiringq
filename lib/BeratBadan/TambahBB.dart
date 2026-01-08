@@ -1,3 +1,5 @@
+//lib/BeratBadan/TambahBB.dart
+
 import 'dart:convert';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:get/get.dart';
@@ -85,6 +87,18 @@ class _TambahBBState extends State<TambahBB> {
   }
 
   Future<void> kirimData() async {
+    // Validasi input
+    if (beratbadanController.text.isEmpty) {
+      Fluttertoast.showToast(
+        msg: 'Mohon masukkan berat badan',
+        toastLength: Toast.LENGTH_LONG,
+        gravity: ToastGravity.BOTTOM,
+        backgroundColor: Colors.orange,
+        textColor: Colors.white,
+      );
+      return;
+    }
+
     try {
       var response = await http.post(
         Uri.parse(apiUrl),
@@ -111,9 +125,23 @@ class _TambahBBState extends State<TambahBB> {
         Navigator.pop(context);
       } else {
         print('Gagal mengirim data: ${response.statusCode}');
+        Fluttertoast.showToast(
+          msg: 'Gagal mengirim data',
+          toastLength: Toast.LENGTH_LONG,
+          gravity: ToastGravity.BOTTOM,
+          backgroundColor: Colors.red,
+          textColor: Colors.white,
+        );
       }
     } catch (e) {
       print('Gagal mengirim data: $e');
+      Fluttertoast.showToast(
+        msg: 'Terjadi kesalahan: $e',
+        toastLength: Toast.LENGTH_LONG,
+        gravity: ToastGravity.BOTTOM,
+        backgroundColor: Colors.red,
+        textColor: Colors.white,
+      );
     }
   }
 
@@ -121,22 +149,24 @@ class _TambahBBState extends State<TambahBB> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Tambah Berat Badan'),
-        backgroundColor: SecondaryColor,
+        backgroundColor: BackgroundColor,
+        elevation: 0,
+        title: const Text(
+          'Tambah Berat Badan',
+          style: TextStyle(
+            color: TextColordark,
+            fontWeight: FontWeight.bold,
+            fontSize: 20,
+          ),
+        ),
+        iconTheme: const IconThemeData(color: TextColordark),
       ),
-      // floatingActionButton: FloatingActionButton(
-      //   tooltip: "Tambah Kalori",
-      //   onPressed: () {
-      //     kirimData();
-      //   },
-      //   child: Icon(Icons.save),
-      //   backgroundColor: SecondaryColor,
-      // ),
+      backgroundColor: BackgroundColor,
       body: SingleChildScrollView(
         child: Stack(children: [
           SafeArea(
             child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: 15.0),
+                padding: const EdgeInsets.symmetric(horizontal: 15.0),
                 child: Container(
                   width: MediaQuery.of(context).size.width,
                   child: Stack(
@@ -145,8 +175,8 @@ class _TambahBBState extends State<TambahBB> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Container(
-                            padding: EdgeInsets.all(20),
-                            child: Text(
+                            padding: const EdgeInsets.all(20),
+                            child: const Text(
                               'Berapa Berat Badan Kamu Hari Ini?',
                               style: TextStyle(
                                 fontSize: 16,
@@ -155,50 +185,78 @@ class _TambahBBState extends State<TambahBB> {
                             ),
                           ),
                           Container(
-                            padding: EdgeInsets.only(left: 20, right: 20),
+                            padding: const EdgeInsets.only(left: 20, right: 20),
                             child: TextFormField(
                               controller: beratbadanController,
                               keyboardType: TextInputType.number,
                               maxLength: 3,
                               decoration: InputDecoration(
+                                filled: true,
+                                fillColor: BackgroundColorWhite,
                                 border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(10),
+                                  borderRadius: BorderRadius.circular(16),
+                                  borderSide: BorderSide.none,
                                 ),
-                                prefixIcon: Icon(Icons.sports_kabaddi),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                  borderSide: const BorderSide(
+                                    color: AccentColor,
+                                    width: 2,
+                                  ),
+                                ),
+                                prefixIcon: const Icon(
+                                  Icons.monitor_weight_rounded,
+                                  color: AccentColor,
+                                ),
                                 suffixText: "Kg",
+                                suffixStyle: const TextStyle(
+                                  color: PrimaryColor,
+                                  fontWeight: FontWeight.bold,
+                                ),
                                 hintText: "Berat Badan Kamu ...",
                               ),
                             ),
                           ),
-                          SizedBox(
+                          const SizedBox(
                             height: 20,
                           ),
-                          GestureDetector(
-                            onTap: () {
-                              kirimData();
-                            },
-                            child: Container(
-                              width: 120,
-                              padding: EdgeInsets.all(16),
-                              decoration: BoxDecoration(
-                                color: SecondaryColor,
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(
-                                      Icons.save,
-                                      color: Colors.white,
+                          Center(
+                            child: GestureDetector(
+                              onTap: () {
+                                kirimData();
+                              },
+                              child: Container(
+                                width: 150,
+                                padding: const EdgeInsets.all(16),
+                                decoration: BoxDecoration(
+                                  color: AccentColor,
+                                  borderRadius: BorderRadius.circular(16),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: AccentColor.withValues(alpha: 0.4),
+                                      blurRadius: 8,
+                                      offset: const Offset(0, 4),
                                     ),
-                                    Text(
-                                      'Simpan',
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 16,
+                                  ],
+                                ),
+                                child: const Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(
+                                        Icons.save,
+                                        color: TextColorLight,
                                       ),
-                                    )
-                                  ]),
+                                      SizedBox(width: 8),
+                                      Text(
+                                        'Simpan',
+                                        style: TextStyle(
+                                          color: TextColorLight,
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      )
+                                    ]),
+                              ),
                             ),
                           )
                         ],
