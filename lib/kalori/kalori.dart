@@ -1,5 +1,6 @@
 // lib/kalori/kalori.dart
 import 'dart:convert';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:isi_piringku/bloc/nav/bottom_nav.dart';
@@ -27,6 +28,7 @@ class _KaloriState extends State<Kalori> {
   bool isLoadingJadwal = false;
   bool isLoadingKonsumsi = false;
   bool isLoadingGrafik = false;
+  bool isLoadingIsiPiringku = false;
   double totalEnergi = 0.0;
   String Id = '';
   String KebutuhanKalori = '0';
@@ -43,10 +45,55 @@ class _KaloriState extends State<Kalori> {
   // User data
   Map<String, dynamic> userData = {};
 
+  // Isi Piringku data
+  Map<String, dynamic> isiPiringkuData = {};
+
   @override
   void initState() {
     super.initState();
     loadUserDataAndFetchData();
+  }
+
+  // ✅ NEW: Get age-based portion recommendations
+  Map<String, double> getAgeBasedPortions(int age) {
+    if (age >= 4 && age <= 6) {
+      // ✅ UNTUK ANAK 4-6 TAHUN: Buah dan Sayur DIGABUNG
+      return {
+        'makanan_pokok_percent': 35.0,
+        'lauk_pauk_percent': 35.0,
+        'buah_sayur_percent': 30.0, // Buah & Sayur digabung
+        'makanan_pokok': 150.0,
+        'lauk_pauk': 75.0,
+        'buah_sayur': 125.0, // Gabungan buah dan sayur
+        'is_child': 1.0, // Flag untuk menandakan anak kecil
+      };
+    } else if (age >= 7 && age <= 12) {
+      // Anak 7-12 tahun: terpisah seperti sebelumnya
+      return {
+        'makanan_pokok': 150.0,
+        'lauk_pauk': 75.0,
+        'sayuran': 100.0,
+        'buah_buahan': 150.0,
+        'makanan_pokok_percent': 31.6,
+        'lauk_pauk_percent': 15.8,
+        'sayuran_percent': 21.1,
+        'buah_buahan_percent': 31.6,
+        'is_child': 0.0,
+      };
+    } else {
+      // Remaja & Dewasa (13+)
+      return {
+        'makanan_pokok': 175.0,
+        'lauk_pauk': 87.5,
+        'sayuran': 175.0,
+        'buah_buahan': 175.0,
+        'makanan_pokok_percent': 28.5,
+        'lauk_pauk_percent': 14.3,
+        'sayuran_percent': 28.5,
+        'buah_buahan_percent': 28.5,
+        'is_child': 0.0,
+      };
+    }
   }
 
   Future<void> selectDate(BuildContext context) async {
@@ -172,7 +219,7 @@ class _KaloriState extends State<Kalori> {
         setState(() {
           data = jsonResponse['response'];
           print('📊 Total food items: ${data.length}');
-          
+
           data.forEach((item) {
             print('  - ${item['nama_makanan']} (${item['keterangan']}) = ${item['kalori']} kkal');
           });
@@ -191,7 +238,7 @@ class _KaloriState extends State<Kalori> {
           totalEnergi = data
               .map((item) => double.parse(item['kalori']))
               .fold(0.0, (prev, curr) => prev + curr);
-          
+
           print('✅ Total energi: $totalEnergi kkal');
         });
       } else {
@@ -230,14 +277,13 @@ class _KaloriState extends State<Kalori> {
         setState(() {
           dataKonsumsi = jsonResponse['response'];
           print('✅ Detail items: ${dataKonsumsi.length}');
-          
-          // ✅ ADDED: Debug print untuk check quantity field
+
           dataKonsumsi.forEach((item) {
             print('  Food: ${item['nama_makanan']}');
             print('    - kuantitas/jumlah: ${item['kuantitas'] ?? item['jumlah'] ?? item['qty'] ?? 'N/A'}');
             print('    - Available keys: ${item.keys.toList()}');
           });
-          
+
           isLoadingKonsumsi = false;
           showMaterialModalBottomSheet(
             context: context,
@@ -331,6 +377,120 @@ class _KaloriState extends State<Kalori> {
       print('❌ Error fetching grafik: $e');
       setState(() {
         isLoadingGrafik = false;
+      });
+    }
+  }
+
+  // ✅ UPDATED: Fetch Isi Piringku data using GRAM (besaran) instead of kalori
+  Future<void> fetchIsiPiringku(String keterangan) async {
+    if (Id.isEmpty) {
+      return;
+    }
+
+    setState(() {
+      isLoadingIsiPiringku = true;
+    });
+    try {
+      print('🔵 Fetching Isi Piringku for: $keterangan');
+      String fetkal = base_url + "API/Makanan/konsumsi?id_user=$Id&waktu=$formattedDate&keterangan=$keterangan";
+      final response = await http.get(
+        Uri.parse(fetkal),
+      );
+
+      print("🔵 Response Isi Piringku: $keterangan");
+      print(response.body);
+
+      if (response.statusCode == 200) {
+        final jsonResponse = json.decode(response.body);
+        final List<dynamic> konsumsiList = jsonResponse['response'];
+
+        int userAge = 20; // default
+        if (jsonResponse['dataUser'] != null && jsonResponse['dataUser']['umur'] != null) {
+          userAge = int.tryParse(jsonResponse['dataUser']['umur'].toString()) ?? 20;
+        }
+        print('👤 User age: $userAge');
+
+        // Group by category and calculate GRAM (besaran) not kalori
+        Map<String, List<Map<String, dynamic>>> groupedByCategory = {};
+        double makananPokokGram = 0;
+        double laukPaukGram = 0;
+        double buahBuahanGram = 0;
+        double sayuranGram = 0;
+        double buahSayurGram = 0; // ✅ NEW: Gabungan buah dan sayur untuk anak 4-6 tahun
+
+        for (var item in konsumsiList) {
+          String kategori = (item['nama_kategori'] ?? '').toString().toLowerCase();
+
+          double besaran = 0;
+
+          if (item['besaran'] != null) {
+            besaran = double.tryParse(item['besaran'].toString()) ?? 0;
+          } else if (item['berat'] != null) {
+            besaran = double.tryParse(item['berat'].toString()) ?? 0;
+          } else if (item['gram'] != null) {
+            besaran = double.tryParse(item['gram'].toString()) ?? 0;
+          } else if (item['ukuran'] != null) {
+            besaran = double.tryParse(item['ukuran'].toString()) ?? 0;
+          }
+
+          int quantity = int.tryParse((item['kuantitas'] ?? item['jumlah'] ?? item['qty'] ?? '1').toString()) ?? 1;
+
+          besaran = besaran * quantity;
+
+          print('  - ${item['nama_makanan']}: $besaran gram (kategori: $kategori)');
+
+          if (kategori.contains('karbo') || kategori.contains('pokok')) {
+            makananPokokGram += besaran;
+          } else if (kategori.contains('lauk')) {
+            laukPaukGram += besaran;
+          } else if (kategori.contains('buah')) {
+            buahBuahanGram += besaran;
+            buahSayurGram += besaran; // ✅ Add to combined for children
+          } else if (kategori.contains('sayur')) {
+            sayuranGram += besaran;
+            buahSayurGram += besaran; // ✅ Add to combined for children
+          }
+
+          if (!groupedByCategory.containsKey(kategori)) {
+            groupedByCategory[kategori] = [];
+          }
+          groupedByCategory[kategori]!.add(item as Map<String, dynamic>);
+        }
+
+        setState(() {
+          isiPiringkuData = {
+            'makanan_pokok': makananPokokGram,
+            'lauk_pauk': laukPaukGram,
+            'buah_buahan': buahBuahanGram,
+            'sayuran': sayuranGram,
+            'buah_sayur': buahSayurGram, // ✅ NEW: Combined for children
+            'grouped_data': groupedByCategory,
+            'total_gram': makananPokokGram + laukPaukGram + buahBuahanGram + sayuranGram,
+            'user_age': userAge,
+          };
+
+          print('✅ Isi Piringku loaded (GRAM)');
+          print('   Makanan Pokok: $makananPokokGram gram');
+          print('   Lauk Pauk: $laukPaukGram gram');
+          print('   Buah-buahan: $buahBuahanGram gram');
+          print('   Sayuran: $sayuranGram gram');
+          print('   Buah+Sayur (combined): $buahSayurGram gram'); // ✅ NEW
+          print('   User age: $userAge tahun');
+
+          isLoadingIsiPiringku = false;
+          showMaterialModalBottomSheet(
+            context: context,
+            backgroundColor: Colors.transparent,
+            builder: (context) => mIsiPiringku(),
+          );
+        });
+      } else {
+        throw Exception('Failed to load data');
+      }
+    } catch (e) {
+      print('❌ Error fetching Isi Piringku: $e');
+      setState(() {
+        isLoadingIsiPiringku = false;
       });
     }
   }
@@ -752,13 +912,13 @@ class _KaloriState extends State<Kalori> {
                                             children: articles2.map((article2) {
                                               final String imageUrl2 = article2['gambar'];
                                               String keterangan = article2['nama'];
-                                              
+
                                               final scheduleFoods = data.where((item) {
                                                 final itemKeterangan = item['keterangan'].toString().trim().toLowerCase();
                                                 final searchKeterangan = keterangan.trim().toLowerCase();
                                                 return itemKeterangan == searchKeterangan;
                                               }).toList();
-                                              
+
                                               // Calculate aggregated nutrition
                                               double totalKalori = 0;
                                               double totalKarbohidrat = 0;
@@ -767,7 +927,7 @@ class _KaloriState extends State<Kalori> {
                                               double totalVitaminA = 0;
                                               double totalVitaminC = 0;
                                               double totalBesi = 0;
-                                              
+
                                               for (var item in scheduleFoods) {
                                                 totalKalori += double.parse(item['kalori']);
                                                 totalKarbohidrat += double.parse(item['karbohidrat']);
@@ -777,9 +937,9 @@ class _KaloriState extends State<Kalori> {
                                                 totalVitaminC += double.parse(item['vitaminc']);
                                                 totalBesi += double.parse(item['besi']);
                                               }
-                                              
+
                                               bool hasData = scheduleFoods.isNotEmpty;
-                                              
+
                                               return Container(
                                                 margin: const EdgeInsets.only(bottom: 12),
                                                 decoration: BoxDecoration(
@@ -818,6 +978,7 @@ class _KaloriState extends State<Kalori> {
                                                             child: Column(
                                                               crossAxisAlignment: CrossAxisAlignment.start,
                                                               children: [
+                                                                
                                                                 Text(
                                                                   keterangan,
                                                                   style: TextStyle(
@@ -844,6 +1005,18 @@ class _KaloriState extends State<Kalori> {
                                                               ? Row(
                                                                   mainAxisSize: MainAxisSize.min,
                                                                   children: [
+                                                                    IconButton(
+                                                                      icon: Icon(
+                                                                        Icons.pie_chart_outline,
+                                                                        color: Colors.purple,
+                                                                        size: 20,
+                                                                      ),
+                                                                      onPressed: isLoadingIsiPiringku
+                                                                          ? null
+                                                                          : () {
+                                                                              fetchIsiPiringku(keterangan);
+                                                                            },
+                                                                    ),
                                                                     IconButton(
                                                                       icon: Icon(
                                                                         Icons.info_outline,
@@ -885,7 +1058,7 @@ class _KaloriState extends State<Kalori> {
                                                                             ),
                                                                       ),
                                                                     );
-                                                                    
+
                                                                     if (result == true) {
                                                                       print('🔄 Refreshing data after add...');
                                                                       await refreshAllData();
@@ -905,22 +1078,73 @@ class _KaloriState extends State<Kalori> {
                                                           child: Column(
                                                             crossAxisAlignment: CrossAxisAlignment.start,
                                                             children: [
-                                                              Text(
-                                                                'Ringkasan Nutrisi',
-                                                                style: TextStyle(
-                                                                  fontSize: 13,
-                                                                  fontWeight: FontWeight.bold,
-                                                                  color: Colors.black87,
-                                                                ),
-                                                              ),
-                                                              const SizedBox(height: 8),
-                                                              Wrap(
-                                                                spacing: 6,
-                                                                runSpacing: 6,
-                                                                children: [
-                                                                  _buildCompactNutritionChip(
-                                                                    Icons.local_fire_department,
-                                                                    'Kalori',
+                                                             Text(
+  'Ringkasan Nutrisi',
+  style: TextStyle(
+    fontSize: 13,
+    fontWeight: FontWeight.bold,
+    color: Colors.black87,
+  ),
+),
+const SizedBox(height: 8),
+
+// ✅ TAMBAHKAN BAGIAN INI (BARU)
+Column(
+  crossAxisAlignment: CrossAxisAlignment.start,
+  children: scheduleFoods.map((food) {
+    final urt = food['urt'] ?? food['URT'] ?? '-';
+    final qty = int.tryParse((food['kuantitas'] ?? food['jumlah'] ?? food['qty'] ?? '1').toString()) ?? 1;
+    final nama = food['nama_makanan'] ?? 'Unknown';
+    
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              '• $nama',
+              style: TextStyle(
+                fontSize: 11,
+                color: Colors.black87,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: Colors.blue[50],
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.blue[200]!),
+            ),
+            child: Text(
+              'URT: $urt × $qty',
+              style: TextStyle(
+                fontSize: 10,
+                color: Colors.blue[700],
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }).toList(),
+),
+const SizedBox(height: 12),
+Divider(color: Colors.grey[300], height: 1),
+const SizedBox(height: 12),
+// ✅ AKHIR BAGIAN BARU
+
+Wrap(
+  spacing: 6,
+  runSpacing: 6,
+  children: [
+    _buildCompactNutritionChip(
+      Icons.local_fire_department,
+      'Kalori',
+      // ... chips lainnya tetap sama,
                                                                     totalKalori.toStringAsFixed(1),
                                                                     'kkal',
                                                                     Colors.orange,
@@ -1064,7 +1288,6 @@ class _KaloriState extends State<Kalori> {
     );
   }
 
-  // ✅ UPDATED: mDetailKalori with quantity display
   Widget mDetailKalori() {
     var size = MediaQuery.of(context).size;
     return Container(
@@ -1135,16 +1358,10 @@ class _KaloriState extends State<Kalori> {
                           final item = dataKonsumsi[index];
                           final String namaMakanan = item['nama_makanan'];
                           final String kategori = item['nama_kategori'] ?? 'Karbo';
-                          
-                          // ✅ ADDED: Get quantity - try multiple field names
-                          final int quantity = int.tryParse(
-                            (item['kuantitas'] ?? 
-                             item['jumlah'] ?? 
-                             item['qty'] ?? 
-                             item['quantity'] ?? 
-                             '1').toString()
-                          ) ?? 1;
-                          
+                          final urt = item['urt'] ?? item['URT'] ?? '-';
+
+                          final int quantity = int.tryParse((item['kuantitas'] ?? item['jumlah'] ?? item['qty'] ?? item['quantity'] ?? '1').toString()) ?? 1;
+
                           final double kalori = double.parse(item['kalori']);
                           final double karbohidrat = double.parse(item['karbohidrat']);
                           final double protein = double.parse(item['protein']);
@@ -1166,7 +1383,6 @@ class _KaloriState extends State<Kalori> {
                               children: [
                                 Row(
                                   children: [
-                                    // ✅ ADDED: Quantity Badge
                                     Container(
                                       width: 32,
                                       height: 32,
@@ -1199,27 +1415,47 @@ class _KaloriState extends State<Kalori> {
                                     ),
                                     const SizedBox(width: 12),
                                     Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            namaMakanan,
-                                            style: const TextStyle(
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.bold,
-                                              color: Colors.black87,
-                                            ),
-                                          ),
-                                          Text(
-                                            kategori,
-                                            style: const TextStyle(
-                                              fontSize: 12,
-                                              color: Colors.grey,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
+  child: Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(
+        namaMakanan,
+        style: const TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.bold,
+          color: Colors.black87,
+        ),
+      ),
+      const SizedBox(height: 2),
+      Text(
+        kategori,
+        style: TextStyle(
+          fontSize: 12,
+          color: Colors.grey[600],
+        ),
+      ),
+      // ✅ TAMBAHKAN BAGIAN INI (BARU)
+      const SizedBox(height: 4),
+      Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(
+          color: Colors.blue[50],
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.blue[200]!),
+        ),
+        child: Text(
+          'URT: $urt × $quantity',
+          style: TextStyle(
+            fontSize: 11,
+            color: Colors.blue[700],
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+      // ✅ AKHIR BAGIAN BARU
+    ],
+  ),
+),
                                     Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                       decoration: BoxDecoration(
@@ -1421,6 +1657,583 @@ class _KaloriState extends State<Kalori> {
     );
   }
 
+  // ✅ UPDATED: Isi Piringku Modal - using GRAM and age-based recommendations
+  Widget mIsiPiringku() {
+    var size = MediaQuery.of(context).size;
+
+    final double makananPokokGram = isiPiringkuData['makanan_pokok'] ?? 0;
+    final double laukPaukGram = isiPiringkuData['lauk_pauk'] ?? 0;
+    final double buahBuahanGram = isiPiringkuData['buah_buahan'] ?? 0;
+    final double sayuranGram = isiPiringkuData['sayuran'] ?? 0;
+    final double buahSayurGram = isiPiringkuData['buah_sayur'] ?? 0; // ✅ NEW: Combined for children
+    final double totalGram = isiPiringkuData['total_gram'] ?? 1;
+    final int userAge = isiPiringkuData['user_age'] ?? 20;
+
+    // Get age-based recommendations
+    final ageRecommendations = getAgeBasedPortions(userAge);
+
+    // Calculate percentages based on actual consumption
+    final double makananPokokPercent = totalGram > 0 ? (makananPokokGram / totalGram) * 100 : 0;
+    final double laukPaukPercent = totalGram > 0 ? (laukPaukGram / totalGram) * 100 : 0;
+
+    // ✅ UPDATED: Conditional percentages based on age
+    double buahBuahanPercent = 0;
+    double sayuranPercent = 0;
+    double buahSayurPercent = 0;
+
+    if (userAge >= 4 && userAge <= 6) {
+      // Anak 4-6 tahun: buah dan sayur digabung
+      buahSayurPercent = totalGram > 0 ? (buahSayurGram / totalGram) * 100 : 0;
+    } else {
+      // Usia lain: terpisah
+      buahBuahanPercent = totalGram > 0 ? (buahBuahanGram / totalGram) * 100 : 0;
+      sayuranPercent = totalGram > 0 ? (sayuranGram / totalGram) * 100 : 0;
+    }
+
+    // Get age category text
+    String ageCategory = '';
+    if (userAge >= 4 && userAge <= 6) {
+      ageCategory = 'Anak 4-6 tahun';
+    } else if (userAge >= 7 && userAge <= 12) {
+      ageCategory = 'Anak 7-12 tahun';
+    } else {
+      ageCategory = 'Remaja & Dewasa (13+ tahun)';
+    }
+
+    return Container(
+      height: size.height * 0.8,
+      width: size.width,
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(20),
+          topRight: Radius.circular(20),
+        ),
+      ),
+      child: Column(
+        children: [
+          const SizedBox(height: 20),
+          const Text(
+            'Isi Piringku',
+            style: TextStyle(
+              color: Colors.black,
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Komposisi Makanan Berdasarkan Kategori',
+            style: TextStyle(
+              color: Colors.grey[600],
+              fontSize: 14,
+            ),
+          ),
+          const SizedBox(height: 24),
+          Expanded(
+            child: isLoadingIsiPiringku
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        CircularProgressIndicator(),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Memuat Isi Piringku...',
+                          style: TextStyle(
+                            color: Colors.grey[600],
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                : SingleChildScrollView(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    child: Column(
+                      children: [
+                        // Age category badge
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: Colors.purple[50],
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: Colors.purple[200]!),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.person, size: 16, color: Colors.purple[700]),
+                              const SizedBox(width: 4),
+                              Text(
+                                '$ageCategory ($userAge tahun)',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.purple[700],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Custom Circular Diagram
+                        Container(
+                          width: 250,
+                          height: 250,
+                          child: CustomPaint(
+                            painter: IsiPiringkuPainter(
+                              makananPokokPercent: makananPokokPercent,
+                              laukPaukPercent: laukPaukPercent,
+                              buahBuahanPercent: userAge >= 4 && userAge <= 6 ? 0 : buahBuahanPercent,
+                              sayuranPercent: userAge >= 4 && userAge <= 6 ? 0 : sayuranPercent,
+                              buahSayurPercent: userAge >= 4 && userAge <= 6 ? buahSayurPercent : 0,
+                              isChild: userAge >= 4 && userAge <= 6,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 32),
+
+                        // Conditional display based on age
+                        if (userAge >= 4 && userAge <= 6) ...[
+                          // Untuk anak 4-6 tahun: buah dan sayur digabung
+                          _buildIsiPiringkuItemGram(
+                            'Makanan Pokok (Karbo)',
+                            makananPokokGram,
+                            makananPokokPercent,
+                            Color(0xFFFFB300),
+                            '${ageRecommendations['makanan_pokok']!.toInt()}g (${ageRecommendations['makanan_pokok_percent']!.toStringAsFixed(1)}%)',
+                            ageRecommendations['makanan_pokok']!,
+                          ),
+                          const SizedBox(height: 16),
+                          _buildIsiPiringkuItemGram(
+                            'Lauk Pauk',
+                            laukPaukGram,
+                            laukPaukPercent,
+                            Color(0xFFE91E63),
+                            '${ageRecommendations['lauk_pauk']!.toInt()}g (${ageRecommendations['lauk_pauk_percent']!.toStringAsFixed(1)}%)',
+                            ageRecommendations['lauk_pauk']!,
+                          ),
+                          const SizedBox(height: 16),
+                          _buildIsiPiringkuItemGram(
+                            'Buah & Sayuran',
+                            buahSayurGram,
+                            buahSayurPercent,
+                            Color(0xFF4CAF50), // Hijau untuk kombinasi buah+sayur
+                            '${ageRecommendations['buah_sayur']!.toInt()}g (${ageRecommendations['buah_sayur_percent']!.toStringAsFixed(1)}%)',
+                            ageRecommendations['buah_sayur']!,
+                          ),
+                        ] else ...[
+                          // Untuk usia lain: terpisah
+                          _buildIsiPiringkuItemGram(
+                            'Makanan Pokok (Karbo)',
+                            makananPokokGram,
+                            makananPokokPercent,
+                            Color(0xFFFFB300),
+                            '${ageRecommendations['makanan_pokok']!.toInt()}g (${ageRecommendations['makanan_pokok_percent']!.toStringAsFixed(1)}%)',
+                            ageRecommendations['makanan_pokok']!,
+                          ),
+                          const SizedBox(height: 16),
+                          _buildIsiPiringkuItemGram(
+                            'Lauk Pauk',
+                            laukPaukGram,
+                            laukPaukPercent,
+                            Color(0xFFE91E63),
+                            '${ageRecommendations['lauk_pauk']!.toInt()}g (${ageRecommendations['lauk_pauk_percent']!.toStringAsFixed(1)}%)',
+                            ageRecommendations['lauk_pauk']!,
+                          ),
+                          const SizedBox(height: 16),
+                          _buildIsiPiringkuItemGram(
+                            'Buah-buahan',
+                            buahBuahanGram,
+                            buahBuahanPercent,
+                            Color(0xFF4CAF50),
+                            '${ageRecommendations['buah_buahan']!.toInt()}g (${ageRecommendations['buah_buahan_percent']!.toStringAsFixed(1)}%)',
+                            ageRecommendations['buah_buahan']!,
+                          ),
+                          const SizedBox(height: 16),
+                          _buildIsiPiringkuItemGram(
+                            'Sayuran',
+                            sayuranGram,
+                            sayuranPercent,
+                            Color(0xFF2196F3),
+                            '${ageRecommendations['sayuran']!.toInt()}g (${ageRecommendations['sayuran_percent']!.toStringAsFixed(1)}%)',
+                            ageRecommendations['sayuran']!,
+                          ),
+                        ],
+
+                        const SizedBox(height: 24),
+
+                        // Total Summary
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: Colors.grey[50],
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.grey[300]!),
+                          ),
+                          child: Column(
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    'Total Konsumsi',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.black87,
+                                    ),
+                                  ),
+                                  Text(
+                                    '${totalGram.toStringAsFixed(0)} gram',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.green[700],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Info Box
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.blue[50],
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.blue[200]!),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(Icons.info_outline, color: Colors.blue[700], size: 20),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  userAge >= 4 && userAge <= 6
+                                      ? 'Untuk anak 4-6 tahun, buah dan sayuran digabung menjadi satu kategori sesuai panduan gizi.'
+                                      : 'Isi Piringku adalah panduan gizi seimbang. Rekomendasi di atas disesuaikan dengan kategori umur Anda ($ageCategory).',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: Colors.blue[900],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+
+                        // Overall Status Summary
+                        Builder(
+                          builder: (context) {
+                            // Calculate status for each category
+                            List<Map<String, dynamic>> statuses = [];
+
+                            if (userAge >= 4 && userAge <= 6) {
+                              // Untuk anak: 3 kategori
+                              statuses.add(_getPortionStatus(makananPokokGram, ageRecommendations['makanan_pokok']!));
+                              statuses.add(_getPortionStatus(laukPaukGram, ageRecommendations['lauk_pauk']!));
+                              statuses.add(_getPortionStatus(buahSayurGram, ageRecommendations['buah_sayur']!));
+                            } else {
+                              // Untuk usia lain: 4 kategori
+                              statuses.add(_getPortionStatus(makananPokokGram, ageRecommendations['makanan_pokok']!));
+                              statuses.add(_getPortionStatus(laukPaukGram, ageRecommendations['lauk_pauk']!));
+                              statuses.add(_getPortionStatus(buahBuahanGram, ageRecommendations['buah_buahan']!));
+                              statuses.add(_getPortionStatus(sayuranGram, ageRecommendations['sayuran']!));
+                            }
+
+                            // Count categories by status
+                            int cukupCount = 0;
+                            int kurangCount = 0;
+                            int lebihCount = 0;
+                            int belumAdaCount = 0;
+
+                            for (var status in statuses) {
+                              if (status['text'] == 'CUKUP') cukupCount++;
+                              else if (status['text'] == 'KURANG') kurangCount++;
+                              else if (status['text'] == 'LEBIH') lebihCount++;
+                              else if (status['text'] == 'BELUM ADA') belumAdaCount++;
+                            }
+
+                            String overallMessage = '';
+                            Color overallColor = Colors.grey;
+                            IconData overallIcon = Icons.info_outline;
+
+                            if (cukupCount == statuses.length) {
+                              overallMessage = '🎉 Sempurna! Semua kategori sudah sesuai rekomendasi';
+                              overallColor = Colors.green;
+                              overallIcon = Icons.celebration;
+                            } else if (cukupCount >= statuses.length - 1) {
+                              overallMessage = '👍 Bagus! Sebagian besar kategori sudah sesuai';
+                              overallColor = Colors.lightGreen;
+                              overallIcon = Icons.thumb_up;
+                            } else if (belumAdaCount >= 2) {
+                              overallMessage = '⚠️ Perhatian! Beberapa kategori belum dikonsumsi';
+                              overallColor = Colors.grey;
+                              overallIcon = Icons.warning_amber;
+                            } else if (kurangCount >= 2) {
+                              overallMessage = '📊 Konsumsi beberapa kategori masih kurang';
+                              overallColor = Colors.orange;
+                              overallIcon = Icons.trending_down;
+                            } else {
+                              overallMessage = '💪 Terus tingkatkan konsumsi sesuai rekomendasi';
+                              overallColor = Colors.blue;
+                              overallIcon = Icons.fitness_center;
+                            }
+
+                            return Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: overallColor.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: overallColor.withOpacity(0.3), width: 2),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(overallIcon, color: overallColor, size: 24),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          'Evaluasi Keseluruhan',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.bold,
+                                            color: overallColor,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          overallMessage,
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            color: Colors.black87,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 6),
+                                        Wrap(
+                                          spacing: 8,
+                                          runSpacing: 4,
+                                          children: [
+                                            if (cukupCount > 0)
+                                              _buildStatusChip('✓ Cukup: $cukupCount', Colors.green),
+                                            if (kurangCount > 0)
+                                              _buildStatusChip('↓ Kurang: $kurangCount', Colors.red),
+                                            if (lebihCount > 0)
+                                              _buildStatusChip('↑ Lebih: $lebihCount', Colors.orange),
+                                            if (belumAdaCount > 0)
+                                              _buildStatusChip('○ Belum ada: $belumAdaCount', Colors.grey),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                        const SizedBox(height: 24),
+                      ],
+                    ),
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ✅ NEW: Get portion status based on actual vs recommended
+  Map<String, dynamic> _getPortionStatus(double actualGram, double recommendedGram) {
+    if (actualGram == 0) {
+      return {
+        'text': 'BELUM ADA',
+        'color': Colors.grey,
+        'message': 'Belum ada konsumsi',
+      };
+    }
+
+    // Calculate percentage of actual vs recommended
+    double percentOfRecommended = (actualGram / recommendedGram) * 100;
+
+    // Tolerance: 80-120% is considered CUKUP
+    if (percentOfRecommended < 80) {
+      return {
+        'text': 'KURANG',
+        'color': Colors.red,
+        'message': 'Konsumsi masih kurang dari rekomendasi',
+      };
+    } else if (percentOfRecommended >= 80 && percentOfRecommended <= 120) {
+      return {
+        'text': 'CUKUP',
+        'color': Colors.green,
+        'message': 'Konsumsi sudah sesuai rekomendasi',
+      };
+    } else {
+      return {
+        'text': 'LEBIH',
+        'color': Colors.orange,
+        'message': 'Konsumsi melebihi rekomendasi',
+      };
+    }
+  }
+
+  // ✅ NEW: Build status chip for overall summary
+  Widget _buildStatusChip(String text, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.15),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withOpacity(0.5)),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontSize: 9,
+          fontWeight: FontWeight.w600,
+          color: color,
+        ),
+      )
+    );
+  }
+
+  // ✅ UPDATED: Build item with GRAM display and status notification
+  Widget _buildIsiPiringkuItemGram(String label, double gram, double percentage, Color color, String recommendation, double recommendedGram) {
+    // Get status
+    final status = _getPortionStatus(gram, recommendedGram);
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey[300]!),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 20,
+                height: 20,
+                decoration: BoxDecoration(
+                  color: color,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  label,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                  ),
+                ),
+              ),
+              // ✅ NEW: Status Badge
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: status['color'],
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  status['text'],
+                  style: const TextStyle(
+                    fontSize: 9,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                '${percentage.toStringAsFixed(1)}%',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: color,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                '${gram.toStringAsFixed(0)} gram',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black87,
+                ),
+              ),
+              Text(
+                recommendation,
+                style: TextStyle(
+                  fontSize: 11,
+                  color: Colors.grey[600],
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+            ],
+          ),
+          // ✅ NEW: Status message
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              Icon(
+                status['text'] == 'CUKUP'
+                    ? Icons.check_circle_outline
+                    : status['text'] == 'KURANG'
+                        ? Icons.warning_amber_rounded
+                        : status['text'] == 'LEBIH'
+                            ? Icons.error_outline
+                            : Icons.info_outline,
+                size: 14,
+                color: status['color'],
+              ),
+              const SizedBox(width: 4),
+              Expanded(
+                child: Text(
+                  status['message'],
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: status['color'],
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: percentage / 100,
+              backgroundColor: Colors.grey[200],
+              valueColor: AlwaysStoppedAnimation<Color>(color),
+              minHeight: 6,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildStatRow(String label, String value) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
@@ -1584,5 +2397,172 @@ class _KaloriState extends State<Kalori> {
     } else {
       return Colors.orange;
     }
+  }
+}
+
+// Custom Painter for Isi Piringku Circular Diagram
+class IsiPiringkuPainter extends CustomPainter {
+  final double makananPokokPercent;
+  final double laukPaukPercent;
+  final double buahBuahanPercent;
+  final double sayuranPercent;
+  final double buahSayurPercent;
+  final bool isChild;
+
+  IsiPiringkuPainter({
+    required this.makananPokokPercent,
+    required this.laukPaukPercent,
+    required this.buahBuahanPercent,
+    required this.sayuranPercent,
+    this.buahSayurPercent = 0,
+    this.isChild = false,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = math.min(size.width, size.height) / 2;
+
+    final makananPokokColor = Color(0xFFFFB300);
+    final laukPaukColor = Color(0xFFE91E63);
+    final buahBuahanColor = Color(0xFF4CAF50);
+    final sayuranColor = Color(0xFF2196F3);
+    final buahSayurColor = Color(0xFF4CAF50); // Hijau untuk kombinasi
+
+    double startAngle = -math.pi / 2;
+    int segmentCount = isChild ? 3 : 4;
+
+    if (isChild) {
+      // Untuk anak: 3 segment (makanan pokok, lauk pauk, buah+sayur)
+      final makananPokokSweep = (makananPokokPercent / 100) * 2 * math.pi;
+      final makananPokokPaint = Paint()
+        ..color = makananPokokColor
+        ..style = PaintingStyle.fill;
+      canvas.drawArc(
+        Rect.fromCircle(center: center, radius: radius),
+        startAngle,
+        makananPokokSweep,
+        true,
+        makananPokokPaint,
+      );
+      startAngle += makananPokokSweep;
+
+      final laukPaukSweep = (laukPaukPercent / 100) * 2 * math.pi;
+      final laukPaukPaint = Paint()
+        ..color = laukPaukColor
+        ..style = PaintingStyle.fill;
+      canvas.drawArc(
+        Rect.fromCircle(center: center, radius: radius),
+        startAngle,
+        laukPaukSweep,
+        true,
+        laukPaukPaint,
+      );
+      startAngle += laukPaukSweep;
+
+      final buahSayurSweep = (buahSayurPercent / 100) * 2 * math.pi;
+      final buahSayurPaint = Paint()
+        ..color = buahSayurColor
+        ..style = PaintingStyle.fill;
+      canvas.drawArc(
+        Rect.fromCircle(center: center, radius: radius),
+        startAngle,
+        buahSayurSweep,
+        true,
+        buahSayurPaint,
+      );
+    } else {
+      // Untuk non-anak: 4 segment
+      final makananPokokSweep = (makananPokokPercent / 100) * 2 * math.pi;
+      final makananPokokPaint = Paint()
+        ..color = makananPokokColor
+        ..style = PaintingStyle.fill;
+      canvas.drawArc(
+        Rect.fromCircle(center: center, radius: radius),
+        startAngle,
+        makananPokokSweep,
+        true,
+        makananPokokPaint,
+      );
+      startAngle += makananPokokSweep;
+
+      final laukPaukSweep = (laukPaukPercent / 100) * 2 * math.pi;
+      final laukPaukPaint = Paint()
+        ..color = laukPaukColor
+        ..style = PaintingStyle.fill;
+      canvas.drawArc(
+        Rect.fromCircle(center: center, radius: radius),
+        startAngle,
+        laukPaukSweep,
+        true,
+        laukPaukPaint,
+      );
+      startAngle += laukPaukSweep;
+
+      final buahBuahanSweep = (buahBuahanPercent / 100) * 2 * math.pi;
+      final buahBuahanPaint = Paint()
+        ..color = buahBuahanColor
+        ..style = PaintingStyle.fill;
+      canvas.drawArc(
+        Rect.fromCircle(center: center, radius: radius),
+        startAngle,
+        buahBuahanSweep,
+        true,
+        buahBuahanPaint,
+      );
+      startAngle += buahBuahanSweep;
+
+      final sayuranSweep = (sayuranPercent / 100) * 2 * math.pi;
+      final sayuranPaint = Paint()
+        ..color = sayuranColor
+        ..style = PaintingStyle.fill;
+      canvas.drawArc(
+        Rect.fromCircle(center: center, radius: radius),
+        startAngle,
+        sayuranSweep,
+        true,
+        sayuranPaint,
+      );
+    }
+
+    // Draw dividing lines
+    final borderPaint = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3;
+
+    startAngle = -math.pi / 2;
+
+    for (int i = 0; i < segmentCount; i++) {
+      double sweepAngle;
+      if (isChild) {
+        if (i == 0) sweepAngle = (makananPokokPercent / 100) * 2 * math.pi;
+        else if (i == 1) sweepAngle = (laukPaukPercent / 100) * 2 * math.pi;
+        else sweepAngle = (buahSayurPercent / 100) * 2 * math.pi;
+      } else {
+        if (i == 0) sweepAngle = (makananPokokPercent / 100) * 2 * math.pi;
+        else if (i == 1) sweepAngle = (laukPaukPercent / 100) * 2 * math.pi;
+        else if (i == 2) sweepAngle = (buahBuahanPercent / 100) * 2 * math.pi;
+        else sweepAngle = (sayuranPercent / 100) * 2 * math.pi;
+      }
+
+      final endAngle = startAngle + sweepAngle;
+      final endX = center.dx + radius * math.cos(endAngle);
+      final endY = center.dy + radius * math.sin(endAngle);
+
+      canvas.drawLine(center, Offset(endX, endY), borderPaint);
+      startAngle = endAngle;
+    }
+
+    final outerBorderPaint = Paint()
+      ..color = Colors.grey[800]!
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2;
+    canvas.drawCircle(center, radius, outerBorderPaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) {
+    return true;
   }
 }

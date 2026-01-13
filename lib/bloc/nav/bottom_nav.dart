@@ -45,7 +45,7 @@ class _BottomNavBarState extends State<BottomNavBar> {
             Expanded(
               child: IconBottomBar(
                   index: 4,
-                  label: 'Darah',
+                  label: 'TTD',
                   selected: widget.selected,
                   icon: Icons.bloodtype,
                   navigateTo: "/ttd"),

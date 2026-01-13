@@ -1,3 +1,5 @@
+// lib/kalori/dashboard.dart
+
 import 'dart:convert';
 import 'dart:math';
 import 'package:flutter/material.dart';
@@ -46,78 +48,138 @@ class _DashboardState extends State<Dashboard> {
     loadUserData();
     fetchData();
     fetchData2();
-    fetchData3();
   }
 
+  /// FUNGSI PERHITUNGAN IMT YANG DIPERBAIKI
+  /// Rumus: IMT = Berat Badan (kg) / (Tinggi Badan (m))²
+  double calculateIMT(double beratBadanKg, double tinggiBadanCm) {
+    if (tinggiBadanCm <= 0 || beratBadanKg <= 0) {
+      return 0.0;
+    }
+    
+    final tinggiBadanM = tinggiBadanCm / 100;
+    final imt = beratBadanKg / (tinggiBadanM * tinggiBadanM);
+    
+    // Validasi hasil IMT
+    if (imt.isNaN || !imt.isFinite || imt <= 0 || imt > 100) {
+      return 0.0;
+    }
+    
+    return imt;
+  }
+
+  /// FUNGSI KATEGORI IMT YANG DIPERBAIKI
+  String getIMTCategory(double imt) {
+    if (imt <= 0 || imt.isNaN || !imt.isFinite) {
+      return 'DATA TIDAK VALID';
+    }
+    
+    if (imt < 17.0) {
+      return 'KURUS BERAT';
+    } else if (imt >= 17.0 && imt < 18.5) {
+      return 'KURUS RINGAN';
+    } else if (imt >= 18.5 && imt < 25.0) {
+      return 'NORMAL';
+    } else if (imt >= 25.0 && imt < 27.0) {
+      return 'GEMUK RINGAN';
+    } else if (imt >= 27.0) {
+      return 'GEMUK BERAT';
+    }
+    
+    return 'DATA TIDAK VALID';
+  }
+
+  /// PERBAIKAN: Fetch data IMT menggunakan ID user yang login, bukan hardcoded
   Future<void> fetchData3() async {
-    final response = await http.get(
-      Uri.parse(base_url + 'api/DataUser/DataUser?id_user=36'),
-    );
+    // Pastikan ID user sudah tersedia
+    if (Id.isEmpty) {
+      print('ID user belum tersedia, menunggu loadUserData selesai');
+      return;
+    }
 
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-      forIMT = data['response'][0];
+    try {
+      // Gunakan ID user yang login, bukan hardcoded ke 36
+      final response = await http.get(
+        Uri.parse(base_url + 'api/DataUser/DataUser?id_user=$Id'),
+      );
 
-      final tinggiBadanCm = double.parse(forIMT!['tinggi_badan']);
-      final beratBadanKg = double.parse(forIMT!['berat_badan']);
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        
+        if (data['response'] != null && data['response'].isNotEmpty) {
+          forIMT = data['response'][0];
 
-      final tinggiBadanM = tinggiBadanCm / 100;
-      final imt = beratBadanKg / (tinggiBadanM * tinggiBadanM);
+          final tinggiBadanCm = double.tryParse(forIMT!['tinggi_badan']?.toString() ?? '0') ?? 0.0;
+          final beratBadanKg = double.tryParse(forIMT!['berat_badan']?.toString() ?? '0') ?? 0.0;
 
-      imtText = '${imt.toStringAsFixed(2)}';
-      double imtDouble = double.parse(imtText);
-      if (imtDouble < 17.0) {
-        KeteranganImtText = 'KURUS BERAT';
-      } else if (imtDouble >= 17.0 && imtDouble <= 18.4) {
-        KeteranganImtText = 'KURUS RINGAN';
-      } else if (imtDouble >= 18.5 && imtDouble <= 25.0) {
-        KeteranganImtText = 'NORMAL';
-      } else if (imtDouble >= 25.1 && imtDouble <= 27.0) {
-        KeteranganImtText = 'GEMUK RINGAN';
-      } else if (imtDouble >= 27.1) {
-        KeteranganImtText = 'GEMUK BERAT';
+          // Gunakan fungsi perhitungan IMT yang sudah diperbaiki
+          final imt = calculateIMT(beratBadanKg, tinggiBadanCm);
+          
+          if (imt > 0) {
+            imtText = imt.toStringAsFixed(1); // 1 desimal saja untuk konsistensi
+            KeteranganImtText = getIMTCategory(imt);
+          } else {
+            imtText = '-';
+            KeteranganImtText = 'DATA TIDAK VALID';
+          }
+
+          if (mounted) {
+            setState(() {});
+          }
+        } else {
+          print('Response kosong atau tidak ada data user');
+        }
+      } else {
+        throw Exception('Failed to load data from API. Status: ${response.statusCode}');
       }
-
-      // ✅ Perbaikan: Cek mounted sebelum setState
+    } catch (e) {
+      print('Error fetching IMT data: $e');
       if (mounted) {
-        setState(() {});
+        setState(() {
+          imtText = '-';
+          KeteranganImtText = 'ERROR';
+        });
       }
-    } else {
-      throw Exception('Failed to load data from API');
     }
   }
 
   Future<void> fetchData2() async {
-    final Uri apiUrl = Uri.parse(base_url + 'api/Artikel/getArtikel');
-    final response = await http.get(apiUrl);
+    try {
+      final Uri apiUrl = Uri.parse(base_url + 'api/Artikel/getArtikel');
+      final response = await http.get(apiUrl);
 
-    if (response.statusCode == 200) {
-      final Map<String, dynamic> data = json.decode(response.body);
-      final List<dynamic> responseList = data['response'];
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> data = json.decode(response.body);
+        final List<dynamic> responseList = data['response'];
 
-      // ✅ Perbaikan: Cek mounted sebelum setState
-      if (mounted) {
-        setState(() {
-          articles = responseList;
-        });
+        if (mounted) {
+          setState(() {
+            articles = responseList;
+          });
+        }
+      } else {
+        throw Exception('Failed to load articles from API');
       }
-    } else {
-      throw Exception('Failed to load data from API');
+    } catch (e) {
+      print('Error fetching articles: $e');
     }
   }
 
   Future<void> fetchData() async {
-    final response =
-        await http.get(Uri.parse(base_url + 'api/Gambar/getgambar'));
-    if (response.statusCode == 200) {
-      final decodedData = json.decode(response.body)['response'];
+    try {
+      final response =
+          await http.get(Uri.parse(base_url + 'api/Gambar/getgambar'));
+      if (response.statusCode == 200) {
+        final decodedData = json.decode(response.body)['response'];
 
-      // ✅ Perbaikan: Cek mounted sebelum setState
-      if (mounted) {
-        setState(() {
-          data = decodedData;
-        });
+        if (mounted) {
+          setState(() {
+            data = decodedData;
+          });
+        }
       }
+    } catch (e) {
+      print('Error fetching images: $e');
     }
   }
 
@@ -127,9 +189,8 @@ class _DashboardState extends State<Dashboard> {
 
     if (userDataString != null) {
       final userData = UserData.fromJson(json.decode(userDataString));
-      print(userData.nama);
+      print('User data loaded: ${userData.nama}, ID: ${userData.idUser}');
 
-      // ✅ Perbaikan: Cek mounted sebelum setState
       if (mounted) {
         setState(() {
           Nama = userData.nama;
@@ -139,24 +200,25 @@ class _DashboardState extends State<Dashboard> {
           Id = userData.idUser.toString();
           umur = userData.umur;
         });
+        
+        // PERBAIKAN: Panggil fetchData3 setelah Id tersedia
+        fetchData3();
       }
     }
   }
 
   Future<void> logoutUser() async {
-    // Hapus token akses dari Shared Preferences
     final prefs = await SharedPreferences.getInstance();
     prefs.remove('access_token');
-    prefs.remove('user_data'); // Jika ada data pengguna lain yang perlu dihapus
+    prefs.remove('user_data');
 
-    // Arahkan pengguna kembali ke halaman login
     Navigator.of(context).pushAndRemoveUntil(
       PageTransition(
         child: LoginForm(),
         type: PageTransitionType.fade,
         duration: const Duration(milliseconds: 500),
       ),
-      (route) => false, // Hapus seluruh riwayat navigasi
+      (route) => false,
     );
   }
 
@@ -172,7 +234,7 @@ class _DashboardState extends State<Dashboard> {
           Container(
             padding: EdgeInsets.only(left: 24),
             child: Text(
-              'Hi, $Nama$Id',
+              'Hi, $Nama',
               style: TextStyle(
                 color: TextColordark,
                 fontSize: 32,
@@ -252,7 +314,7 @@ class _DashboardState extends State<Dashboard> {
                               size: 40,
                             ),
                             Text(
-                              TB + 'cm',
+                              TB + ' cm',
                               style: TextStyle(
                                 color: TextColorLight,
                                 fontSize: 16,
@@ -299,7 +361,7 @@ class _DashboardState extends State<Dashboard> {
                               size: 40,
                             ),
                             Text(
-                              BB + 'kg',
+                              BB + ' kg',
                               style: TextStyle(
                                 color: Colors.white,
                                 fontSize: 16,
@@ -334,28 +396,39 @@ class _DashboardState extends State<Dashboard> {
                               color: TextColorLight,
                               size: 40,
                             ),
+                            SizedBox(height: 4),
                             forIMT == null
-                                ? CircularProgressIndicator()
-                                : Text(
-                                    imtText,
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                    textAlign: TextAlign.center,
+                                ? CircularProgressIndicator(
+                                    color: TextColorLight,
+                                  )
+                                : Column(
+                                    children: [
+                                      Text(
+                                        imtText,
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                        textAlign: TextAlign.center,
+                                      ),
+                                      SizedBox(height: 2),
+                                      Text(
+                                        KeteranganImtText,
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                        textAlign: TextAlign.center,
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ],
                                   ),
+                            SizedBox(height: 4),
                             Text(
-                              KeteranganImtText,
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
-                            Text(
-                              'IMT\n',
+                              'IMT',
                               style: TextStyle(
                                 color: TextColorLight,
                                 fontSize: 14,
@@ -370,7 +443,6 @@ class _DashboardState extends State<Dashboard> {
             ),
           ),
           SizedBox(height: 10),
-          // === Perbaikan Visual: Ganti SingleChildScrollView horizontal dengan Text biasa ===
           Container(
             padding: EdgeInsets.symmetric(horizontal: 24),
             child: Text(
@@ -379,7 +451,6 @@ class _DashboardState extends State<Dashboard> {
               textAlign: TextAlign.center,
             ),
           ),
-          // === End Perbaikan ===
           GestureDetector(
             onTap: () => Navigator.of(context).push(
               PageTransition(
@@ -451,16 +522,6 @@ class _DashboardState extends State<Dashboard> {
                   width: 220,
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(16.0),
-                    gradient: LinearGradient(
-                      colors: gradients[index % gradients.length],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    // === Perbaikan Visual: Gunakan Stack + error handling ===
-                    image: DecorationImage(
-                      image: NetworkImage(data[index]['url']),
-                      fit: BoxFit.cover,
-                    ),
                     boxShadow: [boxShadowPrimary],
                   ),
                   child: ClipRRect(
@@ -548,7 +609,6 @@ class _DashboardState extends State<Dashboard> {
                           width: 80,
                           height: 60,
                           fit: BoxFit.cover,
-                          // === Perbaikan Visual: error handling ===
                           errorBuilder: (context, error, stackTrace) {
                             return Container(
                               width: 80,

@@ -238,7 +238,7 @@ class _InputDarahState extends State<InputDarah> {
     return Scaffold(
       bottomNavigationBar: const BottomNavBar(selected: 4),
       appBar: AppBar(
-        title: const Text('Tambah Darah'),
+        title: const Text('Tablet Tambah Darah'),
         backgroundColor: SecondaryColor,
         elevation: 0,
       ),

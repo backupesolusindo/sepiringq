@@ -1,3 +1,5 @@
+// lib/kalori/tambah.dart
+
 import 'dart:convert';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:get/get.dart';
@@ -34,11 +36,10 @@ class _TambahKaloriState extends State<TambahKalori> {
   List<Map<String, dynamic>> foodData = [];
   bool isSearching = false;
   int cardValue = 0;
-  String Id = ''; // ✅ FIXED: Akan diisi dari SharedPreferences
+  String Id = '';
   bool isLoading = false;
   bool isLoadingData = true;
 
-  // ✅ ADDED: Method untuk load user data
   Future<void> loadUserData() async {
     final prefs = await SharedPreferences.getInstance();
     final userDataString = prefs.getString('user_data');
@@ -86,21 +87,16 @@ class _TambahKaloriState extends State<TambahKalori> {
   @override
   void initState() {
     super.initState();
-
-    // ✅ FIXED: Load user data terlebih dahulu
     _initializeData();
   }
 
-  // ✅ ADDED: Initialize data dengan urutan yang benar
   Future<void> _initializeData() async {
     setState(() {
       isLoadingData = true;
     });
 
-    // Load user data first
     await loadUserData();
 
-    // Then load food data
     try {
       final data = await fetchData();
       setState(() {
@@ -140,7 +136,6 @@ class _TambahKaloriState extends State<TambahKalori> {
   }
 
   Future<void> kirimData() async {
-    // ✅ ADDED: Validasi user ID
     if (Id.isEmpty) {
       Fluttertoast.showToast(
         msg: 'User ID tidak ditemukan. Silakan login kembali.',
@@ -178,7 +173,6 @@ class _TambahKaloriState extends State<TambahKalori> {
             double.tryParse(selectedFood['energi'].toString())!;
       });
 
-      // ✅ ADDED: Debug print
       print('🔵 Sending data:');
       print('   id_user: $Id');
       print('   total_kalori: $energi');
@@ -192,7 +186,7 @@ class _TambahKaloriState extends State<TambahKalori> {
           'Content-Type': 'application/json',
         },
         body: jsonEncode({
-          'id_user': Id, // ✅ FIXED: Sekarang menggunakan ID dari SharedPreferences
+          'id_user': Id,
           'total_kalori': energi,
           'keterangan': widget.keterangan,
           'bahan_makanan_nama_makanan': idMakanan,
@@ -211,7 +205,6 @@ class _TambahKaloriState extends State<TambahKalori> {
           backgroundColor: Colors.green,
           textColor: Colors.white,
         );
-        // ✅ FIXED: Return true to signal successful data addition
         Navigator.pop(context, true);
       } else {
         print('❌ Gagal mengirim data: ${response.statusCode}');
@@ -288,7 +281,6 @@ class _TambahKaloriState extends State<TambahKalori> {
 
   @override
   Widget build(BuildContext context) {
-    // ✅ ADDED: Show loading screen while initializing
     if (isLoadingData) {
       return Scaffold(
         appBar: AppBar(
@@ -445,6 +437,9 @@ class _TambahKaloriState extends State<TambahKalori> {
                       final energi = double.tryParse(energiString) ?? 0.0;
                       final jumlahDipilih = selectedFood['jumlahDipilih'] as int;
                       final totalEnergi = energi * jumlahDipilih;
+                      
+                      // ✅ GET URT
+                      final urt = selectedFood['urt'] ?? selectedFood['URT'] ?? '-';
 
                       return Card(
                         margin: EdgeInsets.only(bottom: 12),
@@ -467,12 +462,25 @@ class _TambahKaloriState extends State<TambahKalori> {
                                         color: Colors.black87,
                                       ),
                                     ),
-                                    Text(
-                                      selectedFood['nama_kategori'],
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.grey[600],
-                                      ),
+                                    Row(
+                                      children: [
+                                        Text(
+                                          selectedFood['nama_kategori'],
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: Colors.grey[600],
+                                          ),
+                                        ),
+                                        // ✅ DISPLAY URT
+                                        Text(
+                                          ' • URT: $urt',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: Colors.blue[700],
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ],
                                 ),
@@ -635,6 +643,10 @@ class _TambahKaloriState extends State<TambahKalori> {
               itemCount: filteredFoodData.length,
               itemBuilder: (context, index) {
                 final foodItem = filteredFoodData[index];
+                
+                // ✅ GET URT
+                final urt = foodItem['urt'] ?? foodItem['URT'] ?? '-';
+                
                 return InkWell(
                   onTap: () {
                     TambahMakanan(foodItem['id_makanan'], index);
@@ -665,12 +677,25 @@ class _TambahKaloriState extends State<TambahKalori> {
                                       color: Colors.black87,
                                     ),
                                   ),
-                                  Text(
-                                    foodItem['nama_kategori'],
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.grey[600],
-                                    ),
+                                  Row(
+                                    children: [
+                                      Text(
+                                        foodItem['nama_kategori'],
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.grey[600],
+                                        ),
+                                      ),
+                                      // ✅ DISPLAY URT IN SEARCH
+                                      Text(
+                                        ' • URT: $urt',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.blue[700],
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ],
                               ),
