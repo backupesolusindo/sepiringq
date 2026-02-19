@@ -84,204 +84,195 @@ class _ProfileState extends State<Profile> {
     loadUserData();
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      bottomNavigationBar: const BottomNavBar(selected: 3),
-      key: scaffoldKey,
-      backgroundColor: const Color.fromARGB(255, 255, 172, 63),
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
-            // Header Section
-            Container(
-              height: 200,
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Color.fromARGB(255, 255, 172, 63),
-                    Color.fromARGB(255, 255, 193, 102),
-                  ],
-                ),
-              ),
-              child: SafeArea(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    // Profile Avatar
-                    Container(
-                      width: 100,
-                      height: 100,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Colors.white,
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
-                            blurRadius: 10,
-                            offset: const Offset(0, 5),
-                          ),
-                        ],
-                      ),
-                      child: const Icon(
-                        Icons.person,
-                        size: 50,
-                        color: Color.fromARGB(255, 255, 172, 63),
+@override
+Widget build(BuildContext context) {
+  return Scaffold(
+    bottomNavigationBar: const BottomNavBar(selected: 3),
+    key: scaffoldKey,
+    backgroundColor: const Color.fromARGB(255, 255, 172, 63),
+    body: ListView( // ⬅️ GANTI DARI SingleChildScrollView + Column
+      children: [
+        // Header Section - Tanpa height fix
+        Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Color.fromARGB(255, 255, 172, 63),
+                Color.fromARGB(255, 255, 193, 102),
+              ],
+            ),
+          ),
+          child: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 20),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    width: 100,
+                    height: 100,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.white,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          blurRadius: 10,
+                          offset: const Offset(0, 5),
+                        ),
+                      ],
+                    ),
+                    child: const Icon(
+                      Icons.person,
+                      size: 50,
+                      color: Color.fromARGB(255, 255, 172, 63),
+                    ),
+                  ),
+                  const SizedBox(height: 15),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        username.isNotEmpty ? username : 'User',
+                        style: const TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                          fontFamily: 'Readex Pro',
+                        ),
                       ),
                     ),
-                    const SizedBox(height: 15),
-                    // Username
-                    Text(
-                      username.isNotEmpty ? username : 'User',
-                      style: const TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                        fontFamily: 'Readex Pro',
-                      ),
-                    ),
-                    const SizedBox(height: 5),
-                    Text(
+                  ),
+                  const SizedBox(height: 5),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Text(
                       nama.isNotEmpty ? nama : 'Nama Lengkap',
+                      maxLines: 1,
+                      overflow: TextOverflow.clip,
+                      textAlign: TextAlign.center,
                       style: const TextStyle(
                         fontSize: 16,
                         color: Colors.white70,
                         fontFamily: 'Readex Pro',
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
-
-            // Profile Content
-            Container(
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(30),
-                  topRight: Radius.circular(30),
-                ),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: 10),
-
-                    // Personal Information Section
-                    _buildSectionTitle('Informasi Personal'),
-                    const SizedBox(height: 15),
-
-                    _buildInfoCard([
-                      _buildInfoRow(Icons.email, 'Email', email),
-                      _buildInfoRow(Icons.phone, 'No. Telepon', noTelp),
-                      _buildInfoRow(Icons.cake, 'Tanggal Lahir', tglLahir),
-                      _buildInfoRow(Icons.wc, 'Jenis Kelamin', jenisKelamin),
-                      _buildInfoRow(
-                          Icons.calendar_today, 'Umur', '$umur tahun'),
-                    ]),
-
-                    const SizedBox(height: 25),
-
-                    // Physical Information Section
-                    _buildSectionTitle('Informasi Fisik'),
-                    const SizedBox(height: 15),
-
-                    _buildInfoCard([
-                      _buildInfoRow(
-                          Icons.height, 'Tinggi Badan', '$tinggiBadan cm'),
-                      _buildInfoRow(Icons.monitor_weight, 'Berat Badan',
-                          '$beratBadan kg'),
-                    ]),
-
-                    const SizedBox(height: 25),
-
-                    // Address Information Section
-                    _buildSectionTitle('Informasi Alamat'),
-                    const SizedBox(height: 15),
-
-                    _buildInfoCard([
-                      _buildInfoRow(Icons.home, 'Alamat', alamat),
-                      _buildInfoRow(
-                          Icons.location_city, 'Kecamatan', kecamatan),
-                      _buildInfoRow(Icons.location_on, 'Kabupaten', kabupaten),
-                      _buildInfoRow(Icons.map, 'Provinsi', provinsi),
-                    ]),
-
-                    const SizedBox(height: 30),
-
-                    // Action Buttons
-                    Row(
-                      children: [
-                        Expanded(
-                          child: ElevatedButton.icon(
-                            onPressed: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => const EditProfile(),
-                                ),
-                              );
-                            },
-                            icon: const Icon(Icons.edit, color: Colors.white),
-                            label: const Text(
-                              'Edit Profile',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: SecondaryColor,
-                              padding: const EdgeInsets.symmetric(vertical: 15),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              elevation: 3,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 15),
-                        Expanded(
-                          child: ElevatedButton.icon(
-                            onPressed: () {
-                              _showLogoutDialog();
-                            },
-                            icon: const Icon(Icons.logout, color: Colors.white),
-                            label: const Text(
-                              'Logout',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AccentColor,
-                              padding: const EdgeInsets.symmetric(vertical: 15),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              elevation: 3,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 20),
-                  ],
-                ),
-              ),
-            ),
-          ],
+          ),
         ),
-      ),
-    );
-  }
+
+        // Profile Content
+        Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.only(
+              topLeft: Radius.circular(30),
+              topRight: Radius.circular(30),
+            ),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: 10),
+                _buildSectionTitle('Informasi Personal'),
+                const SizedBox(height: 15),
+                _buildInfoCard([
+                  _buildInfoRow(Icons.email, 'Email', email),
+                  _buildInfoRow(Icons.phone, 'No. Telepon', noTelp),
+                  _buildInfoRow(Icons.cake, 'Tanggal Lahir', tglLahir),
+                  _buildInfoRow(Icons.wc, 'Jenis Kelamin', jenisKelamin),
+                  _buildInfoRow(Icons.calendar_today, 'Umur', '$umur tahun'),
+                ]),
+                const SizedBox(height: 25),
+                _buildSectionTitle('Informasi Fisik'),
+                const SizedBox(height: 15),
+                _buildInfoCard([
+                  _buildInfoRow(Icons.height, 'Tinggi Badan', '$tinggiBadan cm'),
+                  _buildInfoRow(Icons.monitor_weight, 'Berat Badan', '$beratBadan kg'),
+                ]),
+                const SizedBox(height: 25),
+                _buildSectionTitle('Informasi Alamat'),
+                const SizedBox(height: 15),
+                _buildInfoCard([
+                  _buildInfoRow(Icons.home, 'Alamat', alamat),
+                  _buildInfoRow(Icons.location_city, 'Kecamatan', kecamatan),
+                  _buildInfoRow(Icons.location_on, 'Kabupaten', kabupaten),
+                  _buildInfoRow(Icons.map, 'Provinsi', provinsi),
+                ]),
+                const SizedBox(height: 30),
+                Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const EditProfile(),
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.edit, color: Colors.white),
+                        label: const Text(
+                          'Edit Profile',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: SecondaryColor,
+                          padding: const EdgeInsets.symmetric(vertical: 15),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          elevation: 3,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 15),
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          _showLogoutDialog();
+                        },
+                        icon: const Icon(Icons.logout, color: Colors.white),
+                        label: const Text(
+                          'Logout',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AccentColor,
+                          padding: const EdgeInsets.symmetric(vertical: 15),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          elevation: 3,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+              ],
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+}
 
   Widget _buildSectionTitle(String title) {
     return Text(

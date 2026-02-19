@@ -60,6 +60,16 @@ class _EditProfileState extends State<EditProfile> {
     return null;
   }
 
+  String? _validateDecimalNumber(String? value, String fieldName) {
+    if (value == null || value.isEmpty) {
+      return '$fieldName harus diisi';
+    }
+    if (!RegExp(r'^[0-9]+(\.[0-9]+)?$').hasMatch(value)) {
+      return '$fieldName hanya boleh berisi angka dan desimal';
+    }
+    return null;
+  }
+
   int _calculateAge(DateTime birthDate) {
     DateTime today = DateTime.now();
     int age = today.year - birthDate.year;
@@ -428,24 +438,26 @@ class _EditProfileState extends State<EditProfile> {
                     Expanded(
                       child: TextFormField(
                         controller: tinggiBadanController,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
                         decoration: _buildInputDecoration(
                           'Tinggi Badan (cm)',
                           Icons.height,
                         ),
                         validator: (value) =>
-                            _validateNumber(value, 'Tinggi badan'),
+                            _validateDecimalNumber(value, 'Tinggi badan'),
                       ),
                     ),
                     const SizedBox(width: 15),
                     Expanded(
                       child: TextFormField(
                         controller: beratBadanController,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
                         decoration: _buildInputDecoration(
                           'Berat Badan (kg)',
                           Icons.monitor_weight,
                         ),
                         validator: (value) =>
-                            _validateNumber(value, 'Berat badan'),
+                            _validateDecimalNumber(value, 'Berat badan'),
                       ),
                     ),
                   ],

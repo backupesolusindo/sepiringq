@@ -317,7 +317,7 @@ class _BeratBadanState extends State<BeratBadan> {
                             Padding(
                               padding: const EdgeInsets.only(top: 8),
                               child: Text(
-                                "Tinggi Badan: ${tinggiBadan.toStringAsFixed(0)} cm",
+                                "Tinggi Badan: ${tinggiBadan.toStringAsFixed(1)} cm",
                                 style: TextStyle(
                                   color: Colors.grey[600],
                                   fontSize: 14,

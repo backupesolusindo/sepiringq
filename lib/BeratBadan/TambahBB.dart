@@ -115,6 +115,38 @@ class _TambahBBState extends State<TambahBB> {
       print('Response Simpan Data');
       print(response.body);
       if (response.statusCode == 200) {
+        // Update data user di SharedPreferences
+        final prefs = await SharedPreferences.getInstance();
+        final userDataString = prefs.getString('user_data');
+        
+        if (userDataString != null) {
+          final userData = UserData.fromJson(json.decode(userDataString));
+          
+          // Update berat badan di data user
+          final updatedUserData = UserData(
+            idUser: userData.idUser,
+            username: userData.username,
+            jabatan: userData.jabatan,
+            nama: userData.nama,
+            tglLahir: userData.tglLahir,
+            tinggiBadan: userData.tinggiBadan,
+            beratBadan: beratbadanController.text, // Update dengan berat badan baru
+            alamat: userData.alamat,
+            kecamatan: userData.kecamatan,
+            kabupaten: userData.kabupaten,
+            provinsi: userData.provinsi,
+            jekel: userData.jekel,
+            noTelp: userData.noTelp,
+            tglDaftar: userData.tglDaftar,
+            email: userData.email,
+            umur: userData.umur,
+          );
+          
+          // Simpan kembali ke SharedPreferences
+          await prefs.setString('user_data', json.encode(updatedUserData.toJson()));
+          print('✅ Data user berhasil diupdate dengan BB baru: ${beratbadanController.text}');
+        }
+        
         Fluttertoast.showToast(
           msg: 'Berhasil Kirim Data',
           toastLength: Toast.LENGTH_LONG,
@@ -188,8 +220,8 @@ class _TambahBBState extends State<TambahBB> {
                             padding: const EdgeInsets.only(left: 20, right: 20),
                             child: TextFormField(
                               controller: beratbadanController,
-                              keyboardType: TextInputType.number,
-                              maxLength: 3,
+                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                              maxLength: 5,
                               decoration: InputDecoration(
                                 filled: true,
                                 fillColor: BackgroundColorWhite,

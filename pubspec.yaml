@@ -75,6 +75,11 @@ dev_dependencies:
 flutter:
   assets:
     - assets/images/
+    - assets/images/Isi_piringku/makanan-pokok.jpeg
+    - assets/images/Isi_piringku/lauk-pauk.webp
+    - assets/images/Isi_piringku/buah-buahan.png
+    - assets/images/Isi_piringku/sayur-sayuran.png
+    - assets/images/Isi_piringku/buah-sayur.jpg
   # The following line ensures that the Material Icons font is
   # included with your application, so that you can use the icons in
   # the material Icons class.
