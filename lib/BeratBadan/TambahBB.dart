@@ -5,6 +5,7 @@ import 'package:fluttertoast/fluttertoast.dart';
 import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:isi_piringku/bloc/nav/bottom_nav.dart';
 import 'package:isi_piringku/kalori/kalori.dart';
 import 'package:isi_piringku/model/user.dart';
@@ -32,10 +33,27 @@ class _TambahBBState extends State<TambahBB> {
   String tokenUrl = base_url + "api/Token/token";
   String apiUrl = base_url + "api/BeratBadan/tambahBB";
   String accessToken = "";
+  
+  // Error message untuk berat badan
+  String? beratBadanError;
   List<Map<String, dynamic>> foodData = [];
   bool isSearching = false;
   int cardValue = 0;
   String Id = '';
+
+  void _validateBeratBadanInput(String value) {
+    setState(() {
+      if (value.isEmpty) {
+        beratBadanError = null;
+      } else if (!RegExp(r'^[0-9.]*$').hasMatch(value)) {
+        beratBadanError = '⚠️ Hanya angka dan titik desimal yang diperbolehkan';
+      } else if (value.split('.').length > 2) {
+        beratBadanError = '⚠️ Hanya boleh ada satu titik desimal';
+      } else {
+        beratBadanError = null;
+      }
+    });
+  }
 
   Future<void> loadUserData() async {
     final prefs = await SharedPreferences.getInstance();
@@ -91,6 +109,18 @@ class _TambahBBState extends State<TambahBB> {
     if (beratbadanController.text.isEmpty) {
       Fluttertoast.showToast(
         msg: 'Mohon masukkan berat badan',
+        toastLength: Toast.LENGTH_LONG,
+        gravity: ToastGravity.BOTTOM,
+        backgroundColor: Colors.orange,
+        textColor: Colors.white,
+      );
+      return;
+    }
+
+    // Validasi format desimal
+    if (!RegExp(r'^[0-9]+(\.[0-9]+)?$').hasMatch(beratbadanController.text)) {
+      Fluttertoast.showToast(
+        msg: 'Format berat badan tidak valid. Hanya angka dan titik desimal yang diperbolehkan',
         toastLength: Toast.LENGTH_LONG,
         gravity: ToastGravity.BOTTOM,
         backgroundColor: Colors.orange,
@@ -218,35 +248,64 @@ class _TambahBBState extends State<TambahBB> {
                           ),
                           Container(
                             padding: const EdgeInsets.only(left: 20, right: 20),
-                            child: TextFormField(
-                              controller: beratbadanController,
-                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                              maxLength: 5,
-                              decoration: InputDecoration(
-                                filled: true,
-                                fillColor: BackgroundColorWhite,
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(16),
-                                  borderSide: BorderSide.none,
-                                ),
-                                focusedBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(16),
-                                  borderSide: const BorderSide(
-                                    color: AccentColor,
-                                    width: 2,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                TextFormField(
+                                  controller: beratbadanController,
+                                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                  maxLength: 5,
+                                  onChanged: _validateBeratBadanInput,
+                                  decoration: InputDecoration(
+                                    filled: true,
+                                    fillColor: BackgroundColorWhite,
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(16),
+                                      borderSide: BorderSide.none,
+                                    ),
+                                    focusedBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(16),
+                                      borderSide: const BorderSide(
+                                        color: AccentColor,
+                                        width: 2,
+                                      ),
+                                    ),
+                                    prefixIcon: const Icon(
+                                      Icons.monitor_weight_rounded,
+                                      color: AccentColor,
+                                    ),
+                                    suffixText: "Kg",
+                                    suffixStyle: const TextStyle(
+                                      color: PrimaryColor,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                    hintText: "Berat Badan Kamu ...",
                                   ),
                                 ),
-                                prefixIcon: const Icon(
-                                  Icons.monitor_weight_rounded,
-                                  color: AccentColor,
-                                ),
-                                suffixText: "Kg",
-                                suffixStyle: const TextStyle(
-                                  color: PrimaryColor,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                                hintText: "Berat Badan Kamu ...",
-                              ),
+                                if (beratBadanError != null)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 4, left: 12),
+                                    child: Text(
+                                      beratBadanError!,
+                                      style: const TextStyle(
+                                        color: Colors.red,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  )
+                                else
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 4, left: 12),
+                                    child: Text(
+                                      'ℹ️ Hanya angka dan titik desimal yang diperbolehkan (Contoh: 60.5)',
+                                      style: TextStyle(
+                                        color: Colors.grey[600],
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ),
+                              ],
                             ),
                           ),
                           const SizedBox(

@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:isi_piringku/bloc/nav/bottom_nav.dart';
 import 'package:isi_piringku/model/user.dart';
@@ -19,6 +20,10 @@ class _EditProfileState extends State<EditProfile> {
   final _formKey = GlobalKey<FormState>();
   String selectedGender = 'Laki-Laki';
   DateTime selectedDate = DateTime.now();
+  
+  // Error messages untuk tinggi dan berat badan
+  String? tinggiBadanError;
+  String? beratBadanError;
 
   String? _validateNotEmpty(String? value) {
     if (value == null || value.isEmpty) {
@@ -67,7 +72,39 @@ class _EditProfileState extends State<EditProfile> {
     if (!RegExp(r'^[0-9]+(\.[0-9]+)?$').hasMatch(value)) {
       return '$fieldName hanya boleh berisi angka dan desimal';
     }
+    // Validasi tambahan: pastikan hanya ada satu titik
+    if (value.split('.').length > 2) {
+      return '$fieldName format tidak valid';
+    }
     return null;
+  }
+
+  void _validateTinggiBadanInput(String value) {
+    setState(() {
+      if (value.isEmpty) {
+        tinggiBadanError = null;
+      } else if (!RegExp(r'^[0-9.]*$').hasMatch(value)) {
+        tinggiBadanError = '⚠️ Hanya angka dan titik desimal yang diperbolehkan';
+      } else if (value.split('.').length > 2) {
+        tinggiBadanError = '⚠️ Hanya boleh ada satu titik desimal';
+      } else {
+        tinggiBadanError = null;
+      }
+    });
+  }
+
+  void _validateBeratBadanInput(String value) {
+    setState(() {
+      if (value.isEmpty) {
+        beratBadanError = null;
+      } else if (!RegExp(r'^[0-9.]*$').hasMatch(value)) {
+        beratBadanError = '⚠️ Hanya angka dan titik desimal yang diperbolehkan';
+      } else if (value.split('.').length > 2) {
+        beratBadanError = '⚠️ Hanya boleh ada satu titik desimal';
+      } else {
+        beratBadanError = null;
+      }
+    });
   }
 
   int _calculateAge(DateTime birthDate) {
@@ -436,28 +473,84 @@ class _EditProfileState extends State<EditProfile> {
                 Row(
                   children: [
                     Expanded(
-                      child: TextFormField(
-                        controller: tinggiBadanController,
-                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                        decoration: _buildInputDecoration(
-                          'Tinggi Badan (cm)',
-                          Icons.height,
-                        ),
-                        validator: (value) =>
-                            _validateDecimalNumber(value, 'Tinggi badan'),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          TextFormField(
+                            controller: tinggiBadanController,
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            onChanged: _validateTinggiBadanInput,
+                            decoration: _buildInputDecoration(
+                              'Tinggi Badan (cm)',
+                              Icons.height,
+                            ),
+                            validator: (value) =>
+                                _validateDecimalNumber(value, 'Tinggi badan'),
+                          ),
+                          if (tinggiBadanError != null)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 4, left: 12),
+                              child: Text(
+                                tinggiBadanError!,
+                                style: const TextStyle(
+                                  color: Colors.red,
+                                  fontSize: 11,
+                                ),
+                              ),
+                            )
+                          else
+                            Padding(
+                              padding: const EdgeInsets.only(top: 4, left: 12),
+                              child: Text(
+                                'Contoh: 170.5',
+                                style: TextStyle(
+                                  color: Colors.grey[600],
+                                  fontSize: 11,
+                                ),
+                              ),
+                            ),
+                        ],
                       ),
                     ),
                     const SizedBox(width: 15),
                     Expanded(
-                      child: TextFormField(
-                        controller: beratBadanController,
-                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                        decoration: _buildInputDecoration(
-                          'Berat Badan (kg)',
-                          Icons.monitor_weight,
-                        ),
-                        validator: (value) =>
-                            _validateDecimalNumber(value, 'Berat badan'),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          TextFormField(
+                            controller: beratBadanController,
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            onChanged: _validateBeratBadanInput,
+                            decoration: _buildInputDecoration(
+                              'Berat Badan (kg)',
+                              Icons.monitor_weight,
+                            ),
+                            validator: (value) =>
+                                _validateDecimalNumber(value, 'Berat badan'),
+                          ),
+                          if (beratBadanError != null)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 4, left: 12),
+                              child: Text(
+                                beratBadanError!,
+                                style: const TextStyle(
+                                  color: Colors.red,
+                                  fontSize: 11,
+                                ),
+                              ),
+                            )
+                          else
+                            Padding(
+                              padding: const EdgeInsets.only(top: 4, left: 12),
+                              child: Text(
+                                'Contoh: 60.5',
+                                style: TextStyle(
+                                  color: Colors.grey[600],
+                                  fontSize: 11,
+                                ),
+                              ),
+                            ),
+                        ],
                       ),
                     ),
                   ],
