@@ -311,6 +311,33 @@ Future<void> fetchData() async {
       final jsonResponse = json.decode(response.body);
       print('✅ Konsumsi response received');
 
+      // ✅ PERBAIKAN: Ambil data BB dan TB dari SharedPreferences (data terbaru)
+      // HARUS dilakukan SEBELUM setState karena menggunakan await
+      double beratBadan = 0.0;
+      double tinggiBadan = 0.0;
+      
+      if (jsonResponse['dataUser']['user'] != null) {
+        final prefs = await SharedPreferences.getInstance();
+        final userDataString = prefs.getString('user_data');
+        
+        if (userDataString != null) {
+          final userDataFromPrefs = UserData.fromJson(json.decode(userDataString));
+          beratBadan = double.tryParse(userDataFromPrefs.beratBadan) ?? 0.0;
+          tinggiBadan = double.tryParse(userDataFromPrefs.tinggiBadan) ?? 0.0;
+          print('📊 Kalori - Data dari SharedPreferences:');
+          print('   BB: $beratBadan kg');
+          print('   TB: $tinggiBadan cm');
+        } else {
+          // Fallback ke data API jika SharedPreferences tidak ada
+          final userData = jsonResponse['dataUser']['user'];
+          beratBadan = double.tryParse(userData['berat_badan'].toString()) ?? 0.0;
+          tinggiBadan = double.tryParse(userData['tinggi_badan'].toString()) ?? 0.0;
+          print('📊 Kalori - Data dari API (fallback):');
+          print('   BB: $beratBadan kg');
+          print('   TB: $tinggiBadan cm');
+        }
+      }
+
       setState(() {
         data = jsonResponse['response'];
         print('📊 Total food items: ${data.length}');
@@ -327,10 +354,8 @@ Future<void> fetchData() async {
         if (jsonResponse['dataUser']['user'] != null) {
           userData = jsonResponse['dataUser']['user'];
           
-          if (userData['berat_badan'] != null && userData['tinggi_badan'] != null) {
-            double beratBadan = double.tryParse(userData['berat_badan'].toString()) ?? 0.0;
-            double tinggiBadan = double.tryParse(userData['tinggi_badan'].toString()) ?? 0.0;
-            
+          // Hitung IMT dengan data yang sudah diambil sebelumnya
+          if (beratBadan > 0 && tinggiBadan > 0) {
             nilaiIMT = calculateIMT(beratBadan, tinggiBadan);
             kategoriIMT = getIMTCategory(nilaiIMT);
             
