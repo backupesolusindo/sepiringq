@@ -746,7 +746,30 @@ class _BeratBadanState extends State<BeratBadan> {
       return const SizedBox.shrink();
     }
     
-    if (labelData.length > 10 && index % 2 != 0) {
+    // Logika pemfilteran label berdasarkan jumlah data
+    int dataLength = labelData.length;
+    bool shouldShow = false;
+    
+    if (dataLength <= 7) {
+      // Tampilkan semua label jika data <= 7
+      shouldShow = true;
+    } else if (dataLength <= 15) {
+      // Tampilkan setiap 2 label jika data 8-15
+      shouldShow = index % 2 == 0;
+    } else if (dataLength <= 30) {
+      // Tampilkan setiap 3 label jika data 16-30
+      shouldShow = index % 3 == 0;
+    } else {
+      // Tampilkan setiap 5 label jika data > 30
+      shouldShow = index % 5 == 0;
+    }
+    
+    // Selalu tampilkan label pertama dan terakhir
+    if (index == 0 || index == dataLength - 1) {
+      shouldShow = true;
+    }
+    
+    if (!shouldShow) {
       return const SizedBox.shrink();
     }
     
@@ -757,8 +780,11 @@ class _BeratBadanState extends State<BeratBadan> {
       label = "";
     }
     
+    // Rotasi label jika data banyak untuk menghindari tumpang tindih
+    double rotationAngle = dataLength > 15 ? -0.4 : 0;
+    
     Widget text = Transform.rotate(
-      angle: labelData.length > 10 ? -0.5 : 0,
+      angle: rotationAngle,
       child: Text(
         label,
         style: style,
@@ -770,7 +796,7 @@ class _BeratBadanState extends State<BeratBadan> {
 
     return SideTitleWidget(
       axisSide: meta.axisSide,
-      space: 4,
+      space: dataLength > 15 ? 6 : 4,
       child: text,
     );
   }
@@ -786,8 +812,13 @@ class _BeratBadanState extends State<BeratBadan> {
       return const SizedBox.shrink();
     }
     
+    // Hanya tampilkan nilai bulat untuk menghindari tumpang tindih
+    if (value != value.roundToDouble()) {
+      return const SizedBox.shrink();
+    }
+    
     return Padding(
-      padding: const EdgeInsets.only(right: 4),
+      padding: const EdgeInsets.only(right: 6),
       child: Text(
         value.toInt().toString(),
         style: style,
@@ -826,14 +857,16 @@ class _BeratBadanState extends State<BeratBadan> {
     );
   }
 
+  List<double> _displayedIMTLabels = [];
+
   /// PERBAIKAN UTAMA: Label IMT di axis kanan tidak menumpuk
-  /// Strategi: Hanya tampilkan 4-5 label yang terdistribusi merata
+  /// Strategi: Track label yang sudah ditampilkan untuk menghindari duplikasi
   Widget rightTitleWidgets(double value, TitleMeta meta) {
     if (value.isNaN || !value.isFinite) {
       return const SizedBox.shrink();
     }
     
-    // Konversi nilai BB normalized kembali ke IMT
+    // Reset list jika ini adalah panggilan pertama (value mendekati min)
     double minBB = arBeratBadan.isNotEmpty 
         ? arBeratBadan.map((e) => e.y).reduce((a, b) => a < b ? a : b)
         : 0;
@@ -845,6 +878,15 @@ class _BeratBadanState extends State<BeratBadan> {
       double center = (minBB + maxBB) / 2;
       minBB = max(0, center - 5);
       maxBB = center + 5;
+    }
+    
+    double yPadding = (maxBB - minBB) * 0.15;
+    double adjustedMinY = max(0, minBB - yPadding);
+    double adjustedMaxY = maxBB + yPadding;
+    
+    // Reset tracking list di awal render
+    if ((value - adjustedMinY).abs() < 0.1) {
+      _displayedIMTLabels.clear();
     }
     
     double minIMT = arIMT.isNotEmpty
@@ -860,13 +902,10 @@ class _BeratBadanState extends State<BeratBadan> {
       maxIMT = center + 2.5;
     }
     
-    double yPadding = (maxBB - minBB) * 0.15;
-    double adjustedMinY = max(0, minBB - yPadding);
-    double adjustedMaxY = maxBB + yPadding;
-    
+    // Konversi nilai BB ke IMT
     double imtValue;
-    if (maxBB - minBB > 0) {
-      imtValue = ((value - minBB) / (maxBB - minBB)) * (maxIMT - minIMT) + minIMT;
+    if (adjustedMaxY - adjustedMinY > 0) {
+      imtValue = ((value - adjustedMinY) / (adjustedMaxY - adjustedMinY)) * (maxIMT - minIMT) + minIMT;
     } else {
       imtValue = minIMT;
     }
@@ -875,44 +914,65 @@ class _BeratBadanState extends State<BeratBadan> {
       return const SizedBox.shrink();
     }
     
-    // KUNCI PERBAIKAN: Hanya tampilkan label IMT di nilai bulat tertentu
-    // Hitung interval yang bagus
+    // Hitung interval yang tepat
     double imtRange = maxIMT - minIMT;
-    int desiredLabels = 4; // Maksimal 4 label
-    double rawInterval = imtRange / (desiredLabels - 1);
+    int targetLabels = 4;
     
-    // Round interval ke nilai yang bagus (1, 2, 5, 10, dll)
-    double magnitude = pow(10, (log(rawInterval) / ln10).floor()).toDouble();
+    double rawInterval = imtRange / targetLabels;
+    double magnitude = pow(10, (log(max(rawInterval, 0.1)) / ln10).floor()).toDouble();
     double normalized = rawInterval / magnitude;
-    double interval;
     
-    if (normalized < 1.5) {
+    double interval;
+    if (normalized <= 1.5) {
       interval = 1 * magnitude;
-    } else if (normalized < 3) {
+    } else if (normalized <= 3) {
       interval = 2 * magnitude;
-    } else if (normalized < 7) {
+    } else if (normalized <= 7) {
       interval = 5 * magnitude;
     } else {
       interval = 10 * magnitude;
     }
     
-    // Cek apakah imtValue dekat dengan kelipatan interval
-    double roundedIMT = (imtValue / interval).round() * interval;
-    double tolerance = interval * 0.15; // Toleransi 15%
-    
-    if ((imtValue - roundedIMT).abs() > tolerance) {
-      return const SizedBox.shrink(); // Skip label ini
+    if (interval < 1) {
+      interval = 1;
     }
     
-    // Pastikan label ada dalam range yang valid
-    if (roundedIMT < minIMT - tolerance || roundedIMT > maxIMT + tolerance) {
+    // Bulatkan ke kelipatan interval
+    double roundedIMT = (imtValue / interval).round() * interval;
+    
+    // Cek apakah nilai ini dekat dengan kelipatan interval
+    double tolerance = interval * 0.08; // Toleransi sangat ketat
+    if ((imtValue - roundedIMT).abs() > tolerance) {
       return const SizedBox.shrink();
     }
     
+    // Pastikan dalam range
+    if (roundedIMT < minIMT - 0.5 || roundedIMT > maxIMT + 0.5) {
+      return const SizedBox.shrink();
+    }
+    
+    // CEK DUPLIKASI: Jika label ini sudah ditampilkan, skip
+    for (double displayed in _displayedIMTLabels) {
+      if ((roundedIMT - displayed).abs() < interval * 0.5) {
+        return const SizedBox.shrink();
+      }
+    }
+    
+    // Tambahkan ke list label yang sudah ditampilkan
+    _displayedIMTLabels.add(roundedIMT);
+    
+    // Format angka
+    String labelText;
+    if (roundedIMT == roundedIMT.roundToDouble()) {
+      labelText = roundedIMT.toInt().toString();
+    } else {
+      labelText = roundedIMT.toStringAsFixed(1);
+    }
+    
     return Padding(
-      padding: const EdgeInsets.only(left: 4),
+      padding: const EdgeInsets.only(left: 8),
       child: Text(
-        roundedIMT.toStringAsFixed(0),
+        labelText,
         style: const TextStyle(
           fontWeight: FontWeight.w600,
           fontSize: 10,
@@ -1060,7 +1120,7 @@ class _BeratBadanState extends State<BeratBadan> {
         show: true,
         drawVerticalLine: true,
         horizontalInterval: yInterval,
-        verticalInterval: labelData.length <= 10 ? 1 : 2,
+        verticalInterval: 1, // Interval grid vertikal tetap 1
         getDrawingHorizontalLine: (value) {
           return FlLine(
             color: Colors.grey.withValues(alpha: 0.2),
@@ -1079,7 +1139,7 @@ class _BeratBadanState extends State<BeratBadan> {
         rightTitles: AxisTitles(
           sideTitles: SideTitles(
             showTitles: tinggiBadan > 0 && showIMT && arIMT.isNotEmpty,
-            reservedSize: 45,
+            reservedSize: 50,
             interval: 1, // Interval akan dikontrol di rightTitleWidgets
             getTitlesWidget: rightTitleWidgets,
           ),
@@ -1103,15 +1163,15 @@ class _BeratBadanState extends State<BeratBadan> {
         bottomTitles: AxisTitles(
           sideTitles: SideTitles(
             showTitles: labelData.isNotEmpty,
-            reservedSize: 32,
-            interval: labelData.length <= 10 ? 1 : 2,
+            reservedSize: labelData.length > 15 ? 38 : 32,
+            interval: 1, // Interval akan dikontrol di bottomTitleWidgets
             getTitlesWidget: bottomTitleWidgets,
           ),
         ),
         leftTitles: AxisTitles(
           sideTitles: SideTitles(
             showTitles: true,
-            reservedSize: 45,
+            reservedSize: 50,
             interval: yInterval,
             getTitlesWidget: leftTitleWidgets,
           ),
