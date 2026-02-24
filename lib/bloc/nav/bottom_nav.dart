@@ -17,8 +17,8 @@ class _BottomNavBarState extends State<BottomNavBar> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 80,
-      padding: EdgeInsets.only(top: 16, bottom: 8),
+      height: 70,
+      padding: EdgeInsets.only(top: 8, bottom: 4),
       decoration: BoxDecoration(
         color: Colors.white,
         boxShadow: [boxShadow],
@@ -28,12 +28,13 @@ class _BottomNavBarState extends State<BottomNavBar> {
         ),
       ),
       child: Container(
-        padding: EdgeInsets.all(0),
+        padding: EdgeInsets.symmetric(horizontal: 4),
         width: MediaQuery.of(context).size.width,
         decoration: BoxDecoration(
           color: Colors.transparent,
         ),
         child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
             Expanded(
                 child: IconBottomBar(
@@ -53,7 +54,7 @@ class _BottomNavBarState extends State<BottomNavBar> {
             Expanded(
               child: IconBottomBar(
                   index: 5,
-                  label: 'Berat Badan',
+                  label: 'BB',
                   selected: widget.selected,
                   icon: Icons.monitor_weight_rounded,
                   navigateTo: "/beratbadan"),
@@ -108,32 +109,35 @@ class IconBottomBar extends StatelessWidget {
     return GestureDetector(
       onTap: () {
         Navigator.pushReplacementNamed(context, navigateTo.toString());
-        // if (isUserLoggedIn || index == 0 || index == 1) {
-        // BlocProvider.of<NavBloc>(context).add(navigateTo);
-        // } else {
-        //   showNotLoggedInDialog(context);
-        // }
       },
       child: Container(
+        padding: EdgeInsets.symmetric(horizontal: 2),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.center,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
-                height: (selected == index) ? 32 : 28,
+                height: (selected == index) ? 26 : 24,
                 child: Icon(
                   icon,
+                  size: (selected == index) ? 26 : 24,
                   color: (selected == index) ? PrimaryColor : Colors.grey,
                 )),
+            SizedBox(height: 2),
             Text(
               label,
               style: TextStyle(
-                fontSize: (selected == index) ? 14 : 12,
+                fontSize: (selected == index) ? 11 : 10,
                 fontWeight:
                     (selected == index) ? FontWeight.w700 : FontWeight.w400,
                 color: (selected == index)
                     ? PrimaryColor
                     : Colors.grey.withOpacity(0.5),
               ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
             )
           ],
         ),
